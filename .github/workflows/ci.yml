@@ -1,0 +1,15 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: cd mcp-server && npm install
+      - name: Format check
+        run: cd mcp-server && npm run format:check
+      - name: Tests
+        run: cd mcp-server && npm test
