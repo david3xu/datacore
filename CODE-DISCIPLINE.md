@@ -11,12 +11,12 @@
 | Architecture docs | STRONG — DESIGN.md, MEMORY-ARCHITECTURE.md, DATA-ARCHITECTURE.md |
 | Schemas (Zod) | HAVE — tool inputs validated at runtime |
 | CLAUDE.md | STARTED — 72 lines, will grow |
-| Types (TypeScript) | NONE — plain .mjs files |
-| Lints (ESLint) | NONE |
+| Types (TypeScript) | DONE — strict mode, 5 .ts files, compiles clean |
+| Lints (ESLint) | DONE — strict rules, no-any, eqeqeq, prefer-const |
 | Formatter (Prettier) | DONE — .prettierrc, format:check script |
 | Tests | DONE — 17 tests, 3 suites (log-event, search, get-tasks) |
-| Pre-commit hooks | NONE |
-| CI (GitHub Actions) | NONE |
+| Pre-commit hooks | DONE — runs format:check + test before every commit |
+| CI (GitHub Actions) | DONE — runs on every push |
 
 ## Phase sequence
 
@@ -173,10 +173,10 @@ This is the final gate. Nothing merges without passing.
 ## The constraint stack (when complete)
 
 ```
-CI (GitHub Actions)           ← can't merge broken code          NOT YET
-  Pre-commit hook             ← can't commit broken code         NOT YET
-    Linter (ESLint)           ← can't write bad patterns         NOT YET
-      Types (TypeScript)      ← can't pass wrong types           NOT YET
+CI (GitHub Actions)           ← can't merge broken code          ✅ format+lint+build+test
+  Pre-commit hook             ← can't commit broken code         ✅ format+lint+build+test
+    Linter (ESLint)           ← can't write bad patterns         ✅ strict, no-any, eqeqeq
+      Types (TypeScript)      ← can't pass wrong types           ✅ strict mode
         Tests (Node test)     ← can't break existing tools       ✅ 17 tests
           Formatter (Prettier)← can't have inconsistent style    ✅ configured
             Schemas (Zod)     ← can't send invalid MCP input     ✅ 3 tools
@@ -192,10 +192,10 @@ By the time code runs in production, it has passed through 8 filters.
 |---|---|---|---|
 | 1. Formatter | Before pushing datacore to GitHub | 10 min | DONE |
 | 2. Tests | Before Lakestone application | 30 min | DONE — 17 tests |
-| 3. TypeScript | Before Silver layer work | 2-3 hours | NOT YET |
-| 4. Linter | After TypeScript migration | 20 min | NOT YET |
-| 5. Pre-commit | After linter | 5 min | NOT YET |
-| 6. CI | After repo is on GitHub | 15 min | NOT YET |
+| 3. TypeScript | Before Silver layer work | 2-3 hours | DONE |
+| 4. Linter | After TypeScript migration | 20 min | DONE |
+| 5. Pre-commit | After linter | 5 min | DONE |
+| 6. CI | After repo is on GitHub | 15 min | DONE |
 
 Phases 1-2 are immediate. They're cheap and high impact.
 Phase 3 is the biggest investment but the biggest payoff.

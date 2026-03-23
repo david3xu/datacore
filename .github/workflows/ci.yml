@@ -8,8 +8,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: cd mcp-server && npm install
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - run: cd mcp-server && pnpm install
       - name: Format check
-        run: cd mcp-server && npm run format:check
+        run: cd mcp-server && pnpm run format:check
+      - name: Lint
+        run: cd mcp-server && pnpm run lint
+      - name: Build (TypeScript)
+        run: cd mcp-server && pnpm run build
       - name: Tests
-        run: cd mcp-server && npm test
+        run: cd mcp-server && pnpm run test
