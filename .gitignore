@@ -1,0 +1,6 @@
+node_modules/
+sample-data/
+archive/datacore.db
+*.jsonl
+.DS_Store
+.env

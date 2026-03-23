@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "datacore": {
+      "command": "node",
+      "args": ["./mcp-server/scripts/run-server.mjs"]
+    }
+  }
+}

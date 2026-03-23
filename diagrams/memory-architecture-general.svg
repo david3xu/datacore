@@ -1,0 +1,44 @@
+<svg width="1360" height="1280" viewBox="0 0 680 640" xmlns="http://www.w3.org/2000/svg" style="background:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif">
+<text x="340" y="20" text-anchor="middle" font-size="14" font-weight="500" fill="#2C2C2A">Memory architecture for multi-agent AI systems</text>
+<rect x="42" y="40" width="120" height="40" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="102" y="56" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#2C2C2A">Human</text>
+<rect x="182" y="40" width="120" height="40" rx="6" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+<text x="242" y="56" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#3C3489">AI agent A</text>
+<rect x="322" y="40" width="120" height="40" rx="6" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="382" y="56" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#0C447C">AI agent B</text>
+<rect x="462" y="40" width="170" height="40" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="547" y="56" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#085041">AI agent C ...</text>
+<rect x="30" y="100" width="620" height="80" rx="10" fill="#FAECE7" stroke="#993C1D" stroke-width="0.5"/>
+<text x="340" y="118" text-anchor="middle" font-size="14" font-weight="500" fill="#712B13">Layer 1 - Identity</text>
+<text x="340" y="136" text-anchor="middle" font-size="12" fill="#993C1D">Loaded every turn, per-agent, static</text>
+<text x="340" y="154" text-anchor="middle" font-size="12" fill="#993C1D">Role, startup routine, logging format  |  Budget: &lt;500 tokens</text>
+<rect x="30" y="200" width="620" height="100" rx="10" fill="#FBEAF0" stroke="#993556" stroke-width="0.5"/>
+<text x="340" y="218" text-anchor="middle" font-size="14" font-weight="500" fill="#72243E">Layer 2 - Working memory</text>
+<text x="340" y="236" text-anchor="middle" font-size="12" fill="#993556">Per-session, private, ephemeral</text>
+<rect x="182" y="252" width="120" height="30" rx="6" fill="#fff" stroke="#D3D1C7" stroke-width="0.5"/>
+<text x="242" y="270" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">Session A</text>
+<rect x="322" y="252" width="120" height="30" rx="6" fill="#fff" stroke="#D3D1C7" stroke-width="0.5"/>
+<text x="382" y="270" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">Session B</text>
+<rect x="462" y="252" width="170" height="30" rx="6" fill="#fff" stroke="#D3D1C7" stroke-width="0.5"/>
+<text x="547" y="270" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">Session C ...</text>
+<rect x="30" y="320" width="620" height="80" rx="10" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+<text x="340" y="338" text-anchor="middle" font-size="14" font-weight="500" fill="#3C3489">Layer 3 - Project knowledge</text>
+<text x="340" y="356" text-anchor="middle" font-size="12" fill="#534AB7">Shared files on disk, read on demand</text>
+<text x="340" y="374" text-anchor="middle" font-size="12" fill="#534AB7">Design docs, workflow, architecture  |  Any AI can read when needed</text>
+<rect x="30" y="420" width="620" height="140" rx="14" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+<text x="340" y="440" text-anchor="middle" font-size="14" font-weight="500" fill="#633806">Layer 4 - Shared memory (via MCP)</text>
+<text x="340" y="458" text-anchor="middle" font-size="12" fill="#854F0B">All agents read and write, persistent, searchable</text>
+<rect x="50" y="472" width="180" height="36" rx="6" fill="#fff" stroke="#D3D1C7" stroke-width="0.5"/>
+<text x="140" y="494" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">Raw events (Bronze)</text>
+<rect x="250" y="472" width="180" height="36" rx="6" fill="#fff" stroke="#D3D1C7" stroke-width="0.5"/>
+<text x="340" y="494" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">Semantic search (Silver)</text>
+<rect x="450" y="472" width="180" height="36" rx="6" fill="#fff" stroke="#D3D1C7" stroke-width="0.5"/>
+<text x="540" y="494" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">Curated facts (Gold)</text>
+<text x="340" y="536" text-anchor="middle" font-size="12" fill="#854F0B">As shared memory matures, each agent needs less private memory</text>
+<line x1="242" y1="300" x2="242" y2="418" stroke="#BA7517" stroke-width="0.5" stroke-dasharray="4 3"/>
+<line x1="382" y1="300" x2="382" y2="418" stroke="#BA7517" stroke-width="0.5" stroke-dasharray="4 3"/>
+<line x1="547" y1="300" x2="547" y2="418" stroke="#BA7517" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="340" y="586" text-anchor="middle" font-size="12" fill="#5F5E5A">Dashed lines: auto-capture (hooks, watchers) drains working memory into shared memory</text>
+<text x="340" y="606" text-anchor="middle" font-size="12" fill="#5F5E5A">Each layer exists because it has a unique access pattern the others cannot serve</text>
+<text x="340" y="626" text-anchor="middle" font-size="12" fill="#888780">Protocol: MCP (Model Context Protocol)  |  Pattern: Medallion (Bronze / Silver / Gold)</text>
+</svg>
