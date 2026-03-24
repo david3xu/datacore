@@ -14,7 +14,7 @@ pnpm run lint               # ESLint strict checks
 pnpm run format:check       # Prettier formatting check
 pnpm run format             # Auto-format all files
 pnpm run test               # 17 tests across 3 suites
-pnpm run start              # Run compiled server (dist/index.js)
+pnpm run start              # Run compiled server (dist/server.js)
 ```
 
 ## Workflow requirements
@@ -29,6 +29,48 @@ pnpm run start              # Run compiled server (dist/index.js)
 
 Pre-commit hook enforces: format:check → lint → build → test.
 CI enforces the same on every push.
+
+## Structural principles
+
+These are not preferences — they are design rules learned from
+studying professional codebases. Violating them creates the mess
+we already cleaned up once.
+
+**Every item in the repo must serve the pipeline.**
+Ask: "What compiles, tests, deploys, serves, or instructs with this file?"
+If the answer is nothing — it doesn't belong in the repo. Design docs,
+research notes, migration records, and plans serve the developer's
+thinking, not the software pipeline. They go in the personal workspace
+(`developer/docs/datacore/`), not here.
+
+**Every directory answers ONE question: "What does this do in the system?"**
+Never organize by file type ("docs/", "config/", "utils/") or by when
+something was created ("archive/", "old/"). Organize by function:
+
+```
+src/       → compiler reads this
+tests/     → test runner reads this
+scripts/   → human or agent runs this
+diagrams/  → README references this
+infra/     → Azure deployment reads this
+.github/   → CI reads this
+```
+
+**Every source file answers ONE question.**
+Put the question as a comment on line 1. If a file answers two
+questions, split it. This is how we went from 2 bloated files
+(bronze-store.ts at 423 lines, index.ts at 231 lines) to 8 focused
+files where you can find anything by asking "what does X do?"
+
+**Only README.md and CLAUDE.md at root.**
+README serves GitHub visitors. CLAUDE.md serves AI agents and developers.
+No other markdown files. No docs/ directory. The code structure IS the
+architecture documentation — you see it by reading the src/ tree.
+
+**New files must follow the mirroring principle.**
+When you add a concept (e.g., Silver layer), its name should appear
+consistently: `silver-store.ts` in src/, `silver.test.mjs` in tests/,
+"Silver" section in CLAUDE.md. Trace any concept by name.
 
 ## Architecture
 

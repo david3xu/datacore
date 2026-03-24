@@ -234,38 +234,55 @@ Details in `developer/docs/datacore/` research files.
 
 ## Rules for any developer working on this repo
 
-1. **Read CLAUDE.md first.** It has the build commands, workflow
-   contract, 10 gotchas, and code style rules.
+**Read CLAUDE.md first.** It has build commands, workflow contract,
+structural principles, 10 gotchas, and code style rules. Everything
+below is IN ADDITION to CLAUDE.md — not a replacement.
 
-2. **Before finishing any task:**
-   ```bash
-   cd mcp-server
-   pnpm run format:check   # formatting
-   pnpm run lint            # linting
-   pnpm run build           # TypeScript compiles
-   pnpm run test            # 17+ tests pass
-   ```
-   Pre-commit hook enforces this. CI enforces this.
+### Structural principles (from CLAUDE.md — enforced)
 
-3. **Every new source file must answer ONE question.**
+These came from studying professional codebases (jnsgruk's brewlog,
+booklog, newsagent). They are design rules, not preferences.
+
+1. **Every item in the repo must serve the pipeline.**
+   Ask: "What compiles, tests, deploys, serves, or instructs with this?"
+   If the answer is nothing — it doesn't belong. Design docs, plans,
+   research, migration records go in `developer/docs/datacore/`.
+
+2. **Every directory answers ONE question: "What does this do?"**
+   Never organize by file type (`docs/`, `config/`, `utils/`) or by
+   time (`archive/`, `old/`). Organize by function in the system.
+
+3. **Every source file answers ONE question.**
    Put the question as a comment on line 1:
    `// search.ts — How is data found?`
+   If a file does two things — split it.
 
-4. **No `any` in TypeScript.** Use `unknown` and narrow.
+4. **Only README.md and CLAUDE.md at repo root.**
+   No DESIGN.md, no PLAN.md, no MIGRATION.md at root.
+   Architecture IS the code structure — `src/` tree shows it.
 
-5. **No new markdown files in repo root.**
-   Only README.md and CLAUDE.md live at root.
-   Design docs go in `developer/docs/datacore/`.
+5. **New concepts use consistent names across layers.**
+   Adding Silver? Name it `silver-store.ts` in src/,
+   `silver.test.mjs` in tests/, "Silver" section in CLAUDE.md.
 
-6. **No claims about upstream contributions.**
-   Datacore is built ON OpenClaw, not contributed TO OpenClaw.
+### Build contract (from CLAUDE.md — enforced by CI + pre-commit)
 
-7. **Content in log_event must be plain searchable text.**
-   Not JSON blobs. Not titles. Full briefing paragraphs.
+Before finishing any task:
+```bash
+cd mcp-server
+pnpm run format:check   # formatting
+pnpm run lint            # linting  
+pnpm run build           # TypeScript compiles
+pnpm run test            # 17+ tests pass
+```
 
-8. **Architecture before code.** If the task involves a new
-   subsystem (Silver layer, entity extraction, graph DB),
-   write a design doc FIRST. Get it reviewed. Then build.
+### Code rules
+
+- No `any` in TypeScript — use `unknown` and narrow
+- No `==` ever — always `===` (ESLint enforces)
+- No claims about upstream OpenClaw contributions
+- Content in `log_event` must be plain searchable text, not JSON
+- Architecture before code — new subsystems need a design doc first
 
 ---
 
