@@ -1,5 +1,5 @@
 import process from "node:process";
-import { getDatacoreHooksDir, getDatacoreServerLauncherPath } from "../src/paths.mjs";
+import { getDatacoreHooksDir, getDatacoreServerLauncherPath } from "../dist/paths.js";
 import { readConfigFileSnapshot, writeConfigFile } from "../../../openclaw/src/config/io.ts";
 import { validateConfigObjectWithPlugins } from "../../../openclaw/src/config/validation.ts";
 

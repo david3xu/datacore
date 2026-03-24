@@ -113,34 +113,31 @@ That gap is exactly what datacore solves.
 
 ## Current Status
 
-```
-RESEARCH  ✅  7 rounds, 1495 lines, 10/17 claims verified against official docs
-DESIGN    ✅  v4: Medallion + Knowledge Graph + MCP server as foundation
-BUILD     🔨  MCP server code exists (GPT-5.4 built it), needs testing
-              Azure infra deployed: Databricks + ADLS Gen2 + cluster + notebooks
-              Manual prototypes superseded: log-session.sh → replaced by MCP log_event
-NEXT      →   Install deps, test MCP server, connect to Claude Desktop
-```
+- **MCP server**: 3 tools (`log_event`, `search`, `get_tasks`), TypeScript, 17 tests
+- **Bronze store**: 20,000+ events from 15 sources, JSONL append-only
+- **Connected**: Claude Desktop, OpenClaw, Codex, Gemini Antigravity
+- **CI**: GitHub Actions (format → lint → build → test on every push)
+- **Next**: Silver layer (semantic search), Azure Databricks migration
 
 ## Project Structure
 
 ```
 datacore/
 ├── README.md                ← this file
-├── DESIGN.md                ← architecture (Medallion + KG + MCP)
-├── DATA-ARCHITECTURE.md     ← data engineering: local → Azure Databricks migration path
-├── MEMORY-ARCHITECTURE.md   ← 4-layer memory model (Identity/Working/Project/Shared)
-├── MCP-DECISION-MEMO.md     ← MCP research decisions (verified sources only)
-├── PLAN.md                  ← Phase 1 task breakdown
-├── archive/DIGEST.md        ← verified findings from official Azure docs (archived)
-├── mcp-server/              ← THE FOUNDATION
-│   ├── src/index.mjs        ← MCP server (log_event + search tools)
-│   ├── src/bronze-store.mjs ← writes JSONL to ~/.datacore/bronze/
-│   └── scripts/smoke.mjs    ← end-to-end test
+├── CLAUDE.md                ← agent guidelines (gotchas, patterns, workflow)
+├── .github/workflows/       ← CI pipeline
+├── mcp-server/
+│   ├── src/                 ← TypeScript source (strict mode)
+│   │   ├── index.ts         ← MCP server entry, tool definitions
+│   │   ├── bronze-store.ts  ← append-only JSONL store, search, tasks
+│   │   ├── client.ts        ← programmatic MCP client
+│   │   ├── paths.ts         ← file path resolution
+│   │   └── runtime-deps.ts  ← SDK re-exports
+│   ├── tests/               ← 17 tests (Node.js built-in runner)
+│   ├── scripts/             ← session watchers, smoke tests
+│   ├── package.json, tsconfig.json, eslint.config.js, .prettierrc
+│   └── dist/                ← compiled output (gitignored)
+├── diagrams/                ← architecture diagrams (referenced above)
 ├── infra/                   ← Azure IaC (Bicep + Databricks setup)
-├── notebooks/               ← Databricks notebooks (Bronze ingest + search)
-├── sample-data/             ← collected data + session logs
-├── tasks/                   ← task specs by round (R1-R18+)
-├── archive/                 ← deprecated scripts + pre-MCP files (historical)
 └── hooks/                   ← OpenClaw auto-log hook
 ```

@@ -4,7 +4,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { closeSharedDatacoreSession, logEventViaMcp } from "../src/client.mjs";
+import { closeSharedDatacoreSession, logEventViaMcp } from "../dist/client.js";
 
 const SESSION_ROOT =
   process.env.DATACORE_CLAUDE_AGENT_SESSION_DIR || path.join(os.homedir(), "Library", "Application Support", "Claude", "local-agent-mode-sessions");

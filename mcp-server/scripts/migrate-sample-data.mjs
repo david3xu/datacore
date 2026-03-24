@@ -3,7 +3,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { appendEvent, getBronzeDir } from "../src/bronze-store.mjs";
+import { appendEvent, getBronzeDir } from "../dist/bronze-store.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../..");

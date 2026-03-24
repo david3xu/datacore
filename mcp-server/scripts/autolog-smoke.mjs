@@ -3,8 +3,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import hook from "../../hooks/datacore-mcp-log/handler.js";
-import { closeSharedDatacoreSession } from "../src/client.mjs";
-import { searchEvents } from "../src/bronze-store.mjs";
+import { closeSharedDatacoreSession } from "../dist/client.js";
+import { searchEvents } from "../dist/bronze-store.js";
 
 const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "datacore-autolog-"));
 const bronzeDir = path.join(tempDir, "bronze");

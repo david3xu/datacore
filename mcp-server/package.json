@@ -10,13 +10,13 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "start:dev": "node src/index.mjs",
     "smoke": "node scripts/smoke.mjs",
     "autolog:smoke": "node scripts/autolog-smoke.mjs",
     "inspect": "bash scripts/inspect.sh",
     "format": "npx prettier --write src/ tests/",
     "format:check": "npx prettier --check src/ tests/",
     "lint": "npx eslint src/*.ts",
+    "pretest": "pnpm run build",
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {

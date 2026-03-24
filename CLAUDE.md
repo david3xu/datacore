@@ -15,7 +15,6 @@ pnpm run format:check       # Prettier formatting check
 pnpm run format             # Auto-format all files
 pnpm run test               # 17 tests across 3 suites
 pnpm run start              # Run compiled server (dist/index.js)
-pnpm run start:dev          # Run original JS server (src/index.mjs)
 ```
 
 ## Workflow requirements
@@ -43,8 +42,7 @@ mcp-server/src/
 ```
 
 Source is TypeScript (strict mode). Compiled to `dist/` via `pnpm run build`.
-Original `.mjs` files kept for backward compatibility with existing MCP configs.
-Tests import from `.mjs` files (will migrate to `.ts` imports when ready).
+Tests import from compiled `dist/` output.
 
 Bronze events are JSONL files at `~/.datacore/bronze/YYYY-MM-DD.jsonl`.
 One file per day. Events have: source, type, content, context, _timestamp,
@@ -66,7 +64,7 @@ Sources: `claude.ai`, `claude-desktop`, `openclaw`, `codex-session`,
 **3. Type values are specific, not freeform.**
 Types: `conversation`, `decision`, `action`, `insight`, `problem`,
 `task_created`, `task_assigned`, `task_started`, `task_completed`,
-`task_reviewed`. Don't invent new types without updating SCHEMA.md.
+`task_reviewed`. Don't invent new types without updating this file.
 
 **4. Context is an object, not a string.**
 `context: { session: "2026-03-23", project: "datacore" }`
@@ -87,9 +85,9 @@ Search results have: `eventId`, `timestamp`, `source`, `type`,
 The record has `_event_id` and `_timestamp` (underscore prefix).
 Not `id` and `timestamp`. Tests verify this.
 
-**9. MCP configs point to `.mjs` entry, not compiled `.ts`.**
-All `.mcp.json` files use `src/index.mjs`. After full migration,
-update to `dist/index.js`. Don't break existing connections.
+**9. MCP entry point is `scripts/run-server.mjs` → `dist/index.js`.**
+The `.mcp.json` uses `scripts/run-server.mjs` which imports from
+`dist/index.js`. Always run `pnpm run build` before testing MCP.
 
 **10. Never use `any` in TypeScript.**
 ESLint enforces `@typescript-eslint/no-explicit-any`. Find the
@@ -131,8 +129,6 @@ Key pattern: `before()` creates tmpDir, sets `DATACORE_BRONZE_DIR` env var.
 
 ## Constraint stack
 
-See `CODE-DISCIPLINE.md` for the full plan. Current state:
-
 ```
 CI (GitHub Actions)     ✅  format → lint → build → test
   Pre-commit hook       ✅  same checks locally
@@ -141,5 +137,4 @@ CI (GitHub Actions)     ✅  format → lint → build → test
         Tests           ✅  17 tests, 3 suites
           Formatter     ✅  Prettier configured
             Schemas     ✅  Zod on all 3 tools
-              Arch      ✅  DESIGN.md + 15 docs
 ```

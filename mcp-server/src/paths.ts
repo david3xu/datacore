@@ -12,7 +12,7 @@ export function getDatacoreRepoRoot(): string {
 }
 
 export function getDatacoreServerEntryPath(): string {
-  return path.resolve(moduleDir, 'index.mjs');
+  return path.resolve(moduleDir, '../dist/index.js');
 }
 
 export function getDatacoreServerLauncherPath(): string {
