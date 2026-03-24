@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/server.js",
     "smoke": "node scripts/smoke.mjs",
     "autolog:smoke": "node scripts/autolog-smoke.mjs",
     "inspect": "bash scripts/inspect.sh",

@@ -4,11 +4,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { Client, StdioClientTransport } from "../dist/runtime-deps.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "datacore-mcp-smoke-"));
 const bronzeDir = path.join(tempDir, "bronze");
-const serverPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../dist/index.js");
+const serverPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../dist/server.js");
 
 const transport = new StdioClientTransport({
   command: "node",

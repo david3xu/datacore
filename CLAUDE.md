@@ -34,15 +34,20 @@ CI enforces the same on every push.
 
 ```
 mcp-server/src/
-  index.ts            ← MCP server entry, tool definitions, Zod schemas
-  bronze-store.ts     ← Append-only JSONL read/write, search, task parsing
-  client.ts           ← MCP client for programmatic access
-  paths.ts            ← File path resolution
-  runtime-deps.ts     ← Re-exports from @modelcontextprotocol/sdk + zod
+  server.ts         ← How does the server start?
+  tools.ts          ← What can agents do? (Zod schemas, tool registration)
+  store.ts          ← How is data stored? (append, read, file I/O)
+  search.ts         ← How is data found? (full-text, filtering, snippets)
+  tasks.ts          ← How are tasks tracked? (task parsing, status, board)
+  types.ts          ← What shapes exist? (all interfaces)
+  client.ts         ← How to connect programmatically?
+  paths.ts          ← Where are files?
 ```
 
+Each file answers ONE question. No file has two jobs.
+
 Source is TypeScript (strict mode). Compiled to `dist/` via `pnpm run build`.
-Tests import from compiled `dist/` output.
+Tests import from `dist/`. Entry point: `dist/server.js`.
 
 Bronze events are JSONL files at `~/.datacore/bronze/YYYY-MM-DD.jsonl`.
 One file per day. Events have: source, type, content, context, _timestamp,
@@ -85,9 +90,9 @@ Search results have: `eventId`, `timestamp`, `source`, `type`,
 The record has `_event_id` and `_timestamp` (underscore prefix).
 Not `id` and `timestamp`. Tests verify this.
 
-**9. MCP entry point is `scripts/run-server.mjs` → `dist/index.js`.**
+**9. MCP entry point is `scripts/run-server.mjs` → `dist/server.js`.**
 The `.mcp.json` uses `scripts/run-server.mjs` which imports from
-`dist/index.js`. Always run `pnpm run build` before testing MCP.
+`dist/server.js`. Always run `pnpm run build` before testing MCP.
 
 **10. Never use `any` in TypeScript.**
 ESLint enforces `@typescript-eslint/no-explicit-any`. Find the

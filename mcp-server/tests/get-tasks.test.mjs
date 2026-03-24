@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { appendEvent, getTasks } from '../dist/bronze-store.js';
+import { appendEvent } from '../dist/store.js';
+import { getTasks } from '../dist/tasks.js';
 
 let tmpDir;
 

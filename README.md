@@ -128,11 +128,14 @@ datacore/
 ├── .github/workflows/       ← CI pipeline
 ├── mcp-server/
 │   ├── src/                 ← TypeScript source (strict mode)
-│   │   ├── index.ts         ← MCP server entry, tool definitions
-│   │   ├── bronze-store.ts  ← append-only JSONL store, search, tasks
+│   │   ├── server.ts        ← how the server starts
+│   │   ├── tools.ts         ← MCP tool definitions (Zod schemas)
+│   │   ├── store.ts         ← JSONL append, read, file I/O
+│   │   ├── search.ts        ← full-text search, filtering
+│   │   ├── tasks.ts         ← task parsing, status board
+│   │   ├── types.ts         ← all interfaces
 │   │   ├── client.ts        ← programmatic MCP client
-│   │   ├── paths.ts         ← file path resolution
-│   │   └── runtime-deps.ts  ← SDK re-exports
+│   │   └── paths.ts         ← file path resolution
 │   ├── tests/               ← 17 tests (Node.js built-in runner)
 │   ├── scripts/             ← session watchers, smoke tests
 │   ├── package.json, tsconfig.json, eslint.config.js, .prettierrc

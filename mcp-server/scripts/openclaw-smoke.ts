@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createBundleMcpToolRuntime } from "../../../openclaw/src/agents/pi-bundle-mcp-tools.ts";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const serverPath = path.resolve(scriptDir, "../dist/index.js");
+const serverPath = path.resolve(scriptDir, "../dist/server.js");
 const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "datacore-openclaw-mcp-"));
 const bronzeDir = path.join(tempDir, "bronze");
 
