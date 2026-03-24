@@ -11,10 +11,10 @@
   <key>ProgramArguments</key>
   <array>
     <string>/opt/homebrew/bin/node</string>
-    <string>/Users/291928k/david/Developer/datacore/mcp-server/scripts/codex-session-watcher.mjs</string>
+    <string>/Users/291928k/Library/CloudStorage/OneDrive-Curtin/Developer/datacore/mcp-server/scripts/codex-session-watcher.mjs</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>/Users/291928k/david/Developer/datacore/mcp-server</string>
+  <string>/Users/291928k/Library/CloudStorage/OneDrive-Curtin/Developer/datacore/mcp-server</string>
   <key>StandardOutPath</key>
   <string>/Users/291928k/.datacore/logs/codex.log</string>
   <key>StandardErrorPath</key>
