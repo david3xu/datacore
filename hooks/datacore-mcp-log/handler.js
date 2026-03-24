@@ -1,4 +1,4 @@
-import { logEventViaMcp } from "../../mcp-server/src/client.mjs";
+import { logEventViaMcp } from "../../mcp-server/dist/client.js";
 
 function readString(value) {
   if (typeof value !== "string") {
