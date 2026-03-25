@@ -5,6 +5,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { appendEvent, getBronzeDir } from './store.js';
 import { searchEvents } from './search.js';
 import { getTasks } from './tasks.js';
+import { deepSearch } from './deep-search.js';
 
 function toTextResult(text: string, structuredContent?: unknown) {
   return {
@@ -167,6 +168,62 @@ export function registerTools(server: McpServer): void {
         `Task Board (${status ?? 'active'}) — ${total_tasks} task(s)\n\n${board}`,
         result,
       );
+    },
+  );
+
+  // ─── deep_search ─────────────────────────────────────────
+  server.tool(
+    'deep_search',
+    'Semantic search over Bronze events using Azure Databricks Vector Search. ' +
+      'Finds events by meaning, not just keywords. Requires DATABRICKS_HOST and DATABRICKS_TOKEN.',
+    {
+      query: z.string().min(1).describe('Natural language search query'),
+      num_results: z.number().int().min(1).max(20).optional().describe('Max results (default 5)'),
+      source: z.string().optional().describe('Filter by source'),
+      type: z.string().optional().describe('Filter by event type'),
+      mode: z
+        .enum(['hybrid', 'semantic'])
+        .optional()
+        .describe("'hybrid' (default) = keyword+semantic, 'semantic' = vector only"),
+    },
+    {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    async ({ query, num_results: numResults, source, type, mode }) => {
+      try {
+        const result = await deepSearch({ query, numResults, source, type, mode });
+
+        if (result.results.length === 0) {
+          return toTextResult(`No semantic matches for "${query}"`, result);
+        }
+
+        const summary = result.results
+          .map((r, i) => {
+            const ts = r.timestamp ?? '?';
+            const src = r.source ?? '?';
+            const typ = r.type ?? '?';
+            const content = (r.content ?? '').slice(0, 200);
+            return `${i + 1}. [${src}/${typ}] ${ts}\n   ${content}`;
+          })
+          .join('\n\n');
+
+        return toTextResult(
+          `Found ${result.totalResults} semantic match(es) for "${query}" (${result.mode} mode)\n\n${summary}`,
+          result,
+        );
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        if (msg.includes('DATABRICKS_HOST')) {
+          return toTextResult(
+            'deep_search not configured. Set DATABRICKS_HOST and DATABRICKS_TOKEN env vars. ' +
+              'Run Databricks notebooks 01 and 02 first.',
+          );
+        }
+        return toTextResult(`deep_search error: ${msg}`);
+      }
     },
   );
 }
