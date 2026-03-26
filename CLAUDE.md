@@ -3,8 +3,9 @@
 ## Project overview
 
 Cross-agent memory layer. MCP server exposing `log_event`, `search`,
-and `get_tasks` tools. Bronze JSONL store, designed for Silver (semantic
-search) and Gold (curated facts) layers.
+`get_tasks`, and `deep_search` tools. Bronze JSONL store locally.
+Silver layer on Azure Databricks (Vector Search + managed embeddings).
+Designed for Gold (curated facts) layer next.
 
 ## Build & test commands
 
@@ -13,7 +14,7 @@ pnpm run build              # TypeScript → dist/
 pnpm run lint               # ESLint strict checks
 pnpm run format:check       # Prettier formatting check
 pnpm run format             # Auto-format all files
-pnpm run test               # 17 tests across 3 suites
+pnpm run test               # 23 tests across 3 suites
 pnpm run start              # Run compiled server (dist/server.js)
 ```
 
@@ -23,7 +24,7 @@ pnpm run start              # Run compiled server (dist/server.js)
 
 1. Run `pnpm run build` — TypeScript must compile clean
 2. Run `pnpm run lint` — zero warnings, zero errors
-3. Run `pnpm run test` — all 17 tests must pass
+3. Run `pnpm run test` — all 23 tests must pass
 4. Run `pnpm run format:check` — all files must be formatted
 5. Update this file if you discovered a new gotcha
 
@@ -80,6 +81,7 @@ mcp-server/src/
   tools.ts          ← What can agents do? (Zod schemas, tool registration)
   store.ts          ← How is data stored? (append, read, file I/O)
   search.ts         ← How is data found? (full-text, filtering, snippets)
+  deep-search.ts    ← How does semantic search work? (Databricks Vector Search API)
   tasks.ts          ← How are tasks tracked? (task parsing, status, board)
   types.ts          ← What shapes exist? (all interfaces)
   client.ts         ← How to connect programmatically?
@@ -94,6 +96,14 @@ Tests import from `dist/`. Entry point: `dist/server.js`.
 Bronze events are JSONL files at `~/.datacore/bronze/YYYY-MM-DD.jsonl`.
 One file per day. Events have: source, type, content, context, _timestamp,
 _source, _event_id.
+
+Silver layer lives on Azure Databricks:
+- Delta table: `datacore_databricks.datacore.bronze_events` (2,194 events)
+- Vector Search endpoint: `datacore-search` (ONLINE, serverless)
+- Index: `datacore_databricks.datacore.bronze_events_index`
+- Embeddings: `databricks-gte-large-en` (managed, auto-sync from Delta)
+- `deep_search` tool queries this via REST API using PAT token
+- Requires env vars: `DATABRICKS_HOST`, `DATABRICKS_TOKEN`
 
 ## Gotchas
 
@@ -181,7 +191,7 @@ CI (GitHub Actions)     ✅  format → lint → build → test
   Pre-commit hook       ✅  same checks locally
     Linter (ESLint)     ✅  strict, no-any, eqeqeq
       Types (TypeScript)✅  strict mode, compiled
-        Tests           ✅  17 tests, 3 suites
+        Tests           ✅  23 tests, 3 suites
           Formatter     ✅  Prettier configured
-            Schemas     ✅  Zod on all 3 tools
+            Schemas     ✅  Zod on all 4 tools
 ```

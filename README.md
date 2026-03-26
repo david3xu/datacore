@@ -57,13 +57,15 @@ all support MCP. Datacore is an MCP server that exposes:
 
 **Write tools** — how data gets in:
 - `log_event` → raw event to Bronze (any AI can call this)
-- `add_entity` → extracted entity to knowledge graph (Phase 3)
-- `add_fact` → curated answer to Gold (Phase 4)
 
 **Read tools** — how data comes out:
-- `search` → full-text across all collected data
-- `get_entity` → knowledge graph lookup
-- `get_facts` → cached answers for known questions
+- `search` → keyword grep across all local Bronze events (instant)
+- `deep_search` → semantic search via Azure Databricks Vector Search (meaning-based)
+- `get_tasks` → task board derived from task events
+
+**Planned:**
+- `add_entity` → extracted entity to knowledge graph (Gold layer)
+- `get_facts` → cached answers for known questions (Gold layer)
 
 ## Architecture: Medallion + Knowledge Graph + MCP
 
@@ -103,21 +105,24 @@ That gap is exactly what datacore solves.
 
 | Skill | Implementation | Azure Service |
 |---|---|---|
-| MCP server development | TypeScript/Python, stdio + HTTP | — |
+| MCP server development | TypeScript, 4 tools, stdio transport | — |
 | Data lake architecture | Medallion pattern (Bronze/Silver/Gold) | ADLS Gen2 + Databricks |
-| Real-time ingestion | MCP write tools → JSONL → Delta | Auto Loader + Lakeflow |
-| Knowledge graph | Entity extraction from AI interactions | Databricks + Vector Search |
+| Semantic search | Hybrid keyword + vector search | Mosaic AI Vector Search |
+| Managed embeddings | Auto-embed from Delta table | Foundation Model APIs (gte-large-en) |
+| Real-time ingestion | Session watchers → JSONL → Delta | Auto Loader (planned) |
 | Infrastructure as Code | Bicep templates, automated setup | Azure Resource Manager |
 | Multi-agent coordination | Shared data layer via MCP protocol | — |
 | Data governance | Unity Catalog, schema evolution | Unity Catalog |
 
 ## Current Status
 
-- **MCP server**: 3 tools (`log_event`, `search`, `get_tasks`), TypeScript, 17 tests
-- **Bronze store**: 20,000+ events from 15 sources, JSONL append-only
+- **MCP server**: 4 tools (`log_event`, `search`, `get_tasks`, `deep_search`), TypeScript, 23 tests
+- **Bronze store**: 21,000+ events from 13 sources, JSONL append-only
+- **Silver layer**: Azure Databricks Vector Search (2,194 events indexed, managed embeddings)
 - **Connected**: Claude Desktop, OpenClaw, Codex, Gemini Antigravity
+- **Auto-capture**: 5 session watchers (OpenClaw hook, Gemini/Claude/Codex watchers, manual logging)
 - **CI**: GitHub Actions (format → lint → build → test on every push)
-- **Next**: Silver layer (semantic search), Azure Databricks migration
+- **Next**: Gold layer (curated facts), entity extraction, data refresh pipeline
 
 ## Project Structure
 
@@ -132,14 +137,16 @@ datacore/
 │   │   ├── tools.ts         ← MCP tool definitions (Zod schemas)
 │   │   ├── store.ts         ← JSONL append, read, file I/O
 │   │   ├── search.ts        ← full-text search, filtering
+│   │   ├── deep-search.ts   ← Databricks Vector Search client
 │   │   ├── tasks.ts         ← task parsing, status board
 │   │   ├── types.ts         ← all interfaces
 │   │   ├── client.ts        ← programmatic MCP client
 │   │   └── paths.ts         ← file path resolution
-│   ├── tests/               ← 17 tests (Node.js built-in runner)
-│   ├── scripts/             ← session watchers, smoke tests
+│   ├── tests/               ← 23 tests (Node.js built-in runner)
+│   ├── scripts/             ← session watchers, export, smoke tests
 │   ├── package.json, tsconfig.json, eslint.config.js, .prettierrc
 │   └── dist/                ← compiled output (gitignored)
+├── notebooks/               ← Databricks notebooks (Bronze ingest, Vector Search)
 ├── diagrams/                ← architecture diagrams (referenced above)
 ├── infra/                   ← Azure IaC (Bicep + Databricks setup)
 └── hooks/                   ← OpenClaw auto-log hook
