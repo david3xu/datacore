@@ -7,11 +7,34 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type {
   BronzeRecord,
+  TrustLevel,
   AppendEventInput,
   AppendEventResult,
   Filters,
   ReadAllResult,
 } from './types.js';
+
+const VERIFIED_SOURCES = new Set(['log-session-sh']);
+const AI_SOURCES = new Set([
+  'claude',
+  'claude-agent',
+  'claude.ai',
+  'claude-desktop',
+  'claude-web',
+  'claude-cowork',
+  'codex',
+  'codex-session',
+  'gemini',
+  'gemini-session',
+  'openclaw',
+  'openclaw-session',
+]);
+
+function inferTrust(source: string): TrustLevel {
+  if (VERIFIED_SOURCES.has(source)) return 'verified';
+  if (AI_SOURCES.has(source)) return 'ai-generated';
+  return 'external';
+}
 
 function resolveBronzeDir(): string {
   return process.env.DATACORE_BRONZE_DIR || path.join(os.homedir(), '.datacore', 'bronze');
@@ -95,14 +118,16 @@ export async function appendEvent({
 }: AppendEventInput): Promise<AppendEventResult> {
   const bronzeDir = resolveBronzeDir();
   const timestamp = new Date().toISOString();
+  const sanitizedSource = sanitize(source);
   const record: BronzeRecord = {
-    source: sanitize(source),
+    source: sanitizedSource,
     type: sanitize(type),
     content: sanitize(content),
     ...(context !== undefined ? { context } : {}),
     _timestamp: timestamp,
-    _source: sanitize(source),
+    _source: sanitizedSource,
     _event_id: randomUUID(),
+    _trust: inferTrust(sanitizedSource),
   };
   const filePath = path.join(bronzeDir, `${dayStamp(timestamp)}.jsonl`);
 

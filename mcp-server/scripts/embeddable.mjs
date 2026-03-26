@@ -62,3 +62,31 @@ export function validateForSilver(record) {
 
   return { valid: reasons.length === 0, reasons };
 }
+
+const SUMMARY_MIN_CONTENT_LENGTH = 200;
+
+/**
+ * Extract a compact summary from event content for better Silver embeddings.
+ * Rule-based only — no LLM calls. For content >200 chars: first sentence + key entities.
+ * Returns null for short content (embed as-is).
+ */
+export function extractContentSummary(content) {
+  if (!content || content.length < SUMMARY_MIN_CONTENT_LENGTH) {
+    return null;
+  }
+
+  const firstSentenceMatch = content.match(/^(.{20,300}?[.!?])(?:\s|$)/s);
+  const firstSentence = firstSentenceMatch
+    ? firstSentenceMatch[1].trim()
+    : content.slice(0, 200).trim();
+
+  const entityPattern =
+    /\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)*|[A-Z]{2,}|v\d+\.\d+[\w.]*|R\d{1,3}(?:-\w+)?)\b/g;
+  const entities = [...new Set((content.match(entityPattern) ?? []))].slice(0, 8);
+
+  const summary = entities.length > 0
+    ? `${firstSentence} [${entities.join(', ')}]`
+    : firstSentence;
+
+  return summary.length < content.length * 0.8 ? summary : null;
+}

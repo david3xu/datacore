@@ -90,6 +90,7 @@ export async function searchEvents({
           timestamp: record._timestamp ?? null,
           source: record._source ?? record.source ?? null,
           type: record.type ?? null,
+          trust: record._trust ?? null,
           snippet: buildSnippet(haystack, query),
           filePath,
         });

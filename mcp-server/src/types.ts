@@ -41,6 +41,8 @@ export interface GetFactsResult {
   total: number;
 }
 
+export type TrustLevel = 'verified' | 'ai-generated' | 'external';
+
 export interface BronzeRecord {
   source: string;
   type: string;
@@ -49,6 +51,7 @@ export interface BronzeRecord {
   _timestamp: string;
   _source: string;
   _event_id: string;
+  _trust: TrustLevel;
   _filePath?: string;
 }
 
@@ -77,6 +80,7 @@ export interface SearchResult {
   timestamp: string | null;
   source: string | null;
   type: string | null;
+  trust: TrustLevel | null;
   snippet: string;
   filePath: string;
 }
