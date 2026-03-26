@@ -1,5 +1,10 @@
 // deep-search.ts — How does deep semantic search work?
 // Calls Azure Databricks Vector Search REST API for semantic + hybrid queries.
+// Uses a circuit breaker to prevent hammering a failing API.
+
+import { deepSearchBreaker } from './circuit-breaker.js';
+
+export { CircuitOpenError } from './circuit-breaker.js';
 
 export interface DeepSearchInput {
   query: string;
@@ -60,39 +65,59 @@ export async function deepSearch(input: DeepSearchInput): Promise<DeepSearchOutp
   }
 
   const url = `${host}/api/2.0/vector-search/indexes/${indexName}/query`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Databricks API ${response.status}: ${text}`);
-  }
+  // Tag 4xx errors so the outer catch can call ignore() after onFailure() runs
+  class CallerError extends Error {}
 
-  const data = (await response.json()) as {
-    manifest: { columns: Array<{ name: string }> };
-    result: { data_array: string[][] };
-  };
+  try {
+    return await deepSearchBreaker.call(async () => {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
 
-  const colNames = data.manifest.columns.map((c) => c.name);
-  const results: DeepSearchResult[] = data.result.data_array.map((row) => {
-    const obj: Record<string, string | null> = {};
-    colNames.forEach((name, i) => {
-      obj[name] = row[i] ?? null;
+      if (!response.ok) {
+        const text = await response.text();
+        if (response.status >= 400 && response.status < 500) {
+          // Tag as caller error — will be unwrapped below after breaker.onFailure() runs
+          throw new CallerError(`Databricks API ${response.status}: ${text}`);
+        }
+        // 5xx / 429 — server-side failure, let the breaker count it
+        throw new Error(`Databricks API ${response.status}: ${text}`);
+      }
+
+      const data = (await response.json()) as {
+        manifest: { columns: Array<{ name: string }> };
+        result: { data_array: string[][] };
+      };
+
+      const colNames = data.manifest.columns.map((c) => c.name);
+      const results: DeepSearchResult[] = data.result.data_array.map((row) => {
+        const obj: Record<string, string | null> = {};
+        colNames.forEach((name, i) => {
+          obj[name] = row[i] ?? null;
+        });
+        return {
+          eventId: obj['event_id'] ?? null,
+          timestamp: obj['timestamp'] ?? null,
+          source: obj['source'] ?? null,
+          type: obj['type'] ?? null,
+          content: obj['content'] ?? null,
+        };
+      });
+
+      return { query, mode, indexName, totalResults: results.length, results };
     });
-    return {
-      eventId: obj['event_id'] ?? null,
-      timestamp: obj['timestamp'] ?? null,
-      source: obj['source'] ?? null,
-      type: obj['type'] ?? null,
-      content: obj['content'] ?? null,
-    };
-  });
-
-  return { query, mode, indexName, totalResults: results.length, results };
+  } catch (err) {
+    // 4xx caller errors: undo the failure that breaker.call() just counted
+    if (err instanceof CallerError) {
+      deepSearchBreaker.ignore();
+      throw new Error(err.message, { cause: err });
+    }
+    throw err;
+  }
 }

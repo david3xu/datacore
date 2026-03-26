@@ -12,6 +12,54 @@ mkdir -p "$LOG_DIR"
 
 log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $1" | tee -a "$LOG_FILE"; }
 
+# retry_curl — exponential backoff with full jitter.
+# Usage: retry_curl [curl args...]
+# Retries on non-zero exit code or HTTP 5xx / 429.
+# Base: 2s  Cap: 60s  Max attempts: 5
+retry_curl() {
+  local attempt=1
+  local max_attempts=5
+  local base=2
+  local cap=60
+  local http_code output tmpfile
+
+  while [ "$attempt" -le "$max_attempts" ]; do
+    tmpfile=$(mktemp)
+    http_code=$(curl -s -o "$tmpfile" -w "%{http_code}" "$@")
+    output=$(cat "$tmpfile")
+    rm -f "$tmpfile"
+
+    # Success: 2xx or 3xx
+    if echo "$http_code" | grep -qE '^[23]'; then
+      echo "$output"
+      return 0
+    fi
+
+    # Non-retriable: 4xx (caller error)
+    if echo "$http_code" | grep -qE '^4' && [ "$http_code" != "429" ]; then
+      log "  curl: non-retriable HTTP $http_code on attempt $attempt"
+      echo "$output"
+      return 1
+    fi
+
+    if [ "$attempt" -lt "$max_attempts" ]; then
+      # Full jitter: delay = random(0, min(cap, base * 2^attempt))
+      local window=$(( base * (1 << attempt) ))
+      [ "$window" -gt "$cap" ] && window=$cap
+      local delay=$(( RANDOM % (window + 1) ))
+      log "  curl: HTTP ${http_code} — retry $attempt/$max_attempts in ${delay}s"
+      sleep "$delay"
+    else
+      log "  curl: HTTP ${http_code} — all $max_attempts attempts exhausted"
+      echo "$output"
+      return 1
+    fi
+
+    attempt=$(( attempt + 1 ))
+  done
+}
+
+
 log "=== Daily sync started ==="
 
 # Step 1: Export per-day JSONL
@@ -32,7 +80,7 @@ fi
 
 # Check if job exists, create if not
 JOB_NAME="datacore-daily-ingest"
-JOB_ID=$(curl -s "$DATABRICKS_HOST/api/2.1/jobs/list?name=$JOB_NAME" \
+JOB_ID=$(retry_curl "$DATABRICKS_HOST/api/2.1/jobs/list?name=$JOB_NAME" \
   -H "Authorization: Bearer $DATABRICKS_TOKEN" \
   | python3 -c "
 import sys, json
@@ -49,12 +97,12 @@ if [ -z "$JOB_ID" ]; then
   NOTEBOOK_FILE="$SCRIPT_DIR/../../notebooks/03-autoloader-ingest.py"
   
   CONTENT=$(base64 < "$NOTEBOOK_FILE")
-  curl -s -X POST "$DATABRICKS_HOST/api/2.0/workspace/mkdirs" \
+  retry_curl -X POST "$DATABRICKS_HOST/api/2.0/workspace/mkdirs" \
     -H "Authorization: Bearer $DATABRICKS_TOKEN" \
     -H "Content-Type: application/json" \
     -d "{\"path\": \"/Users/291928k@curtin.edu.au/datacore\"}" > /dev/null
 
-  curl -s -X POST "$DATABRICKS_HOST/api/2.0/workspace/import" \
+  retry_curl -X POST "$DATABRICKS_HOST/api/2.0/workspace/import" \
     -H "Authorization: Bearer $DATABRICKS_TOKEN" \
     -H "Content-Type: application/json" \
     -d "{
@@ -67,7 +115,7 @@ if [ -z "$JOB_ID" ]; then
   log "  Uploaded notebook to $NOTEBOOK_PATH"
 
   # Find our cluster
-  CLUSTER_ID=$(curl -s "$DATABRICKS_HOST/api/2.0/clusters/list" \
+  CLUSTER_ID=$(retry_curl "$DATABRICKS_HOST/api/2.0/clusters/list" \
     -H "Authorization: Bearer $DATABRICKS_TOKEN" \
     | python3 -c "
 import sys, json
@@ -78,7 +126,7 @@ for c in d.get('clusters', []):
 " 2>/dev/null)
 
   # Create the Job
-  JOB_ID=$(curl -s -X POST "$DATABRICKS_HOST/api/2.1/jobs/create" \
+  JOB_ID=$(retry_curl -X POST "$DATABRICKS_HOST/api/2.1/jobs/create" \
     -H "Authorization: Bearer $DATABRICKS_TOKEN" \
     -H "Content-Type: application/json" \
     -d "{
@@ -96,7 +144,7 @@ fi
 
 # Trigger the Job
 log "  Triggering Job $JOB_ID"
-RUN_ID=$(curl -s -X POST "$DATABRICKS_HOST/api/2.1/jobs/run-now" \
+RUN_ID=$(retry_curl -X POST "$DATABRICKS_HOST/api/2.1/jobs/run-now" \
   -H "Authorization: Bearer $DATABRICKS_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"job_id\": $JOB_ID}" \
@@ -106,7 +154,7 @@ log "  Run ID: $RUN_ID"
 # Wait for Job to complete (polls every 30s, max 20 min)
 for i in $(seq 1 40); do
   sleep 30
-  STATE=$(curl -s "$DATABRICKS_HOST/api/2.1/jobs/runs/get?run_id=$RUN_ID" \
+  STATE=$(retry_curl "$DATABRICKS_HOST/api/2.1/jobs/runs/get?run_id=$RUN_ID" \
     -H "Authorization: Bearer $DATABRICKS_TOKEN" \
     | python3 -c "
 import sys, json

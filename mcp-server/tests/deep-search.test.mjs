@@ -4,11 +4,16 @@ import assert from 'node:assert/strict';
 
 // Save and clear env vars before tests
 let savedHost, savedToken, savedIndex;
+let breaker; // circuit breaker singleton — shared across all tests
 
-before(() => {
+before(async () => {
   savedHost = process.env.DATABRICKS_HOST;
   savedToken = process.env.DATABRICKS_TOKEN;
   savedIndex = process.env.DATABRICKS_INDEX_NAME;
+
+  // Grab the circuit breaker singleton so tests can reset it
+  const cb = await import('../dist/circuit-breaker.js');
+  breaker = cb.deepSearchBreaker;
 });
 
 after(() => {
@@ -19,6 +24,11 @@ after(() => {
   if (savedIndex) process.env.DATABRICKS_INDEX_NAME = savedIndex;
   else delete process.env.DATABRICKS_INDEX_NAME;
 });
+
+/** Reset breaker to CLOSED state — call at start of any test that uses a mocked fetch */
+function resetBreaker() {
+  Object.assign(breaker, { state: 'CLOSED', failures: 0, openedAt: null });
+}
 
 describe('deep-search', () => {
   it('throws when DATABRICKS_HOST is not set', async () => {
@@ -56,6 +66,7 @@ describe('deep-search', () => {
     process.env.DATABRICKS_HOST = 'https://fake.azuredatabricks.net';
     process.env.DATABRICKS_TOKEN = 'fake-token';
     delete process.env.DATABRICKS_INDEX_NAME;
+    resetBreaker();
 
     const { deepSearch } = await import('../dist/deep-search.js');
     // Will fail on fetch (no real server), but we can catch and inspect the URL
@@ -72,6 +83,7 @@ describe('deep-search', () => {
     process.env.DATABRICKS_HOST = 'https://fake.azuredatabricks.net';
     process.env.DATABRICKS_TOKEN = 'fake-token';
     process.env.DATABRICKS_INDEX_NAME = 'custom.schema.my_index';
+    resetBreaker();
 
     const { deepSearch } = await import('../dist/deep-search.js');
     try {
@@ -85,6 +97,7 @@ describe('deep-search', () => {
   it('caps numResults at 20', async () => {
     process.env.DATABRICKS_HOST = 'https://fake.azuredatabricks.net';
     process.env.DATABRICKS_TOKEN = 'fake-token';
+    resetBreaker();
 
     const { deepSearch } = await import('../dist/deep-search.js');
     // Intercept global fetch to verify the request body
@@ -109,6 +122,7 @@ describe('deep-search', () => {
   it('sends correct filter format for source', async () => {
     process.env.DATABRICKS_HOST = 'https://fake.azuredatabricks.net';
     process.env.DATABRICKS_TOKEN = 'fake-token';
+    resetBreaker();
 
     const { deepSearch } = await import('../dist/deep-search.js');
     const originalFetch = globalThis.fetch;
@@ -137,6 +151,7 @@ describe('deep-search', () => {
   it('sends HYBRID query_type by default', async () => {
     process.env.DATABRICKS_HOST = 'https://fake.azuredatabricks.net';
     process.env.DATABRICKS_TOKEN = 'fake-token';
+    resetBreaker();
 
     const { deepSearch } = await import('../dist/deep-search.js');
     const originalFetch = globalThis.fetch;
@@ -154,6 +169,9 @@ describe('deep-search', () => {
     }
     assert.equal(capturedBody.query_type, 'HYBRID');
 
+    // Reset for second call (503 above incremented failures — reset before next)
+    resetBreaker();
+
     try {
       await deepSearch({ query: 'test', mode: 'semantic' });
     } catch {
@@ -162,5 +180,157 @@ describe('deep-search', () => {
     assert.equal(capturedBody.query_type, 'ANN');
 
     globalThis.fetch = originalFetch;
+  });
+
+  describe('circuit breaker', () => {
+    it('circuit opens after failureThreshold consecutive 5xx failures', async () => {
+      process.env.DATABRICKS_HOST = 'https://fake.azuredatabricks.net';
+      process.env.DATABRICKS_TOKEN = 'fake-token';
+      resetBreaker();
+
+      const { deepSearch } = await import('../dist/deep-search.js');
+      const originalFetch = globalThis.fetch;
+
+      // Mock fetch to always return 503
+      globalThis.fetch = async () => ({
+        ok: false,
+        status: 503,
+        text: async () => 'service unavailable',
+      });
+
+      // Trip the circuit (failureThreshold = 3)
+      for (let i = 0; i < 3; i++) {
+        try {
+          await deepSearch({ query: 'test' });
+        } catch {
+          /* expected */
+        }
+      }
+
+      assert.equal(breaker.getState(), 'OPEN', 'circuit should be OPEN after 3 failures');
+
+      // Next call should throw CircuitOpenError immediately (fetch not called)
+      let fetchCalled = false;
+      globalThis.fetch = async () => {
+        fetchCalled = true;
+        return { ok: true };
+      };
+
+      const { CircuitOpenError } = await import('../dist/deep-search.js');
+      await assert.rejects(
+        () => deepSearch({ query: 'probe' }),
+        (err) => {
+          assert.ok(
+            err instanceof CircuitOpenError,
+            `expected CircuitOpenError, got ${err.constructor.name}`,
+          );
+          return true;
+        },
+      );
+      assert.equal(fetchCalled, false, 'fetch should not be called when circuit is OPEN');
+
+      globalThis.fetch = originalFetch;
+    });
+
+    it('circuit stays closed after a successful call', async () => {
+      process.env.DATABRICKS_HOST = 'https://fake.azuredatabricks.net';
+      process.env.DATABRICKS_TOKEN = 'fake-token';
+      resetBreaker();
+
+      const { deepSearch } = await import('../dist/deep-search.js');
+      const originalFetch = globalThis.fetch;
+
+      globalThis.fetch = async () => ({
+        ok: true,
+        json: async () => ({
+          manifest: {
+            columns: [
+              { name: 'event_id' },
+              { name: 'timestamp' },
+              { name: 'source' },
+              { name: 'type' },
+              { name: 'content' },
+            ],
+          },
+          result: { data_array: [] },
+        }),
+      });
+
+      await deepSearch({ query: 'hello' });
+      assert.equal(breaker.getState(), 'CLOSED', 'circuit should remain CLOSED after success');
+      assert.equal(breaker.getFailures(), 0);
+
+      globalThis.fetch = originalFetch;
+    });
+
+    it('4xx errors do not trip the circuit breaker', async () => {
+      process.env.DATABRICKS_HOST = 'https://fake.azuredatabricks.net';
+      process.env.DATABRICKS_TOKEN = 'fake-token';
+      resetBreaker();
+
+      const { deepSearch } = await import('../dist/deep-search.js');
+      const originalFetch = globalThis.fetch;
+
+      globalThis.fetch = async () => ({ ok: false, status: 401, text: async () => 'unauthorized' });
+
+      // Fire 5 x 401 errors — should never open the circuit
+      for (let i = 0; i < 5; i++) {
+        try {
+          await deepSearch({ query: 'test' });
+        } catch {
+          /* 401 expected */
+        }
+      }
+
+      assert.equal(breaker.getState(), 'CLOSED', '4xx errors should not open the circuit');
+      assert.equal(breaker.getFailures(), 0, 'failure count should stay 0 after 4xx errors');
+
+      globalThis.fetch = originalFetch;
+    });
+
+    it('circuit transitions OPEN → HALF_OPEN → CLOSED on successful probe', async () => {
+      process.env.DATABRICKS_HOST = 'https://fake.azuredatabricks.net';
+      process.env.DATABRICKS_TOKEN = 'fake-token';
+      resetBreaker();
+
+      const { deepSearch } = await import('../dist/deep-search.js');
+      const originalFetch = globalThis.fetch;
+
+      // Trip the circuit
+      globalThis.fetch = async () => ({ ok: false, status: 503, text: async () => 'err' });
+      for (let i = 0; i < 3; i++) {
+        try {
+          await deepSearch({ query: 'test' });
+        } catch {
+          /* expected */
+        }
+      }
+      assert.equal(breaker.getState(), 'OPEN');
+
+      // Simulate recovery window passing by backdating openedAt
+      Object.assign(breaker, { openedAt: Date.now() - 31_000 });
+
+      // Next call should be a HALF_OPEN probe — mock it to succeed
+      globalThis.fetch = async () => ({
+        ok: true,
+        json: async () => ({
+          manifest: {
+            columns: [
+              { name: 'event_id' },
+              { name: 'timestamp' },
+              { name: 'source' },
+              { name: 'type' },
+              { name: 'content' },
+            ],
+          },
+          result: { data_array: [] },
+        }),
+      });
+
+      await deepSearch({ query: 'probe' });
+      assert.equal(breaker.getState(), 'CLOSED', 'successful probe should close the circuit');
+
+      globalThis.fetch = originalFetch;
+    });
   });
 });
