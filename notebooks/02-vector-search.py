@@ -5,17 +5,17 @@
 # MAGIC Delta Sync Index with Databricks-managed embeddings (gte-large-en).
 # MAGIC
 # MAGIC ## Prerequisites
-# MAGIC - `datacore.default.bronze_events` Delta table exists (run 01 first)
+# MAGIC - `datacore_databricks.datacore.bronze_events` Delta table exists (run 01 first)
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC ALTER TABLE datacore.default.bronze_events SET TBLPROPERTIES (delta.enableChangeDataFeed = true);
+# MAGIC ALTER TABLE datacore_databricks.datacore.bronze_events SET TBLPROPERTIES (delta.enableChangeDataFeed = true);
 
 # COMMAND ----------
 
 # Verify CDF enabled
-props = spark.sql("SHOW TBLPROPERTIES datacore.default.bronze_events").collect()
+props = spark.sql("SHOW TBLPROPERTIES datacore_databricks.datacore.bronze_events").collect()
 for row in props:
     if 'change' in row.key.lower():
         print(f"{row.key} = {row.value}")
@@ -23,7 +23,7 @@ for row in props:
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT count(*) as embeddable_events FROM datacore.default.bronze_events
+# MAGIC SELECT count(*) as embeddable_events FROM datacore_databricks.datacore.bronze_events
 # MAGIC WHERE content IS NOT NULL AND LENGTH(content) > 50;
 
 # COMMAND ----------
@@ -58,8 +58,8 @@ print(f"Endpoint {ENDPOINT_NAME} is ONLINE")
 
 # COMMAND ----------
 
-INDEX_NAME = "datacore.default.bronze_events_index"
-SOURCE_TABLE = "datacore.default.bronze_events"
+INDEX_NAME = "datacore_databricks.datacore.bronze_events_index"
+SOURCE_TABLE = "datacore_databricks.datacore.bronze_events"
 EMBEDDING_MODEL = "databricks-gte-large-en"
 
 try:

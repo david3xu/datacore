@@ -28,7 +28,8 @@ export interface DeepSearchOutput {
 function getConfig(): { host: string; token: string; indexName: string } {
   const host = process.env.DATABRICKS_HOST;
   const token = process.env.DATABRICKS_TOKEN;
-  const indexName = process.env.DATABRICKS_INDEX_NAME || 'datacore.default.bronze_events_index';
+  const indexName =
+    process.env.DATABRICKS_INDEX_NAME || 'datacore_databricks.datacore.bronze_events_index';
 
   if (!host || !token) {
     throw new Error(
@@ -51,11 +52,11 @@ export async function deepSearch(input: DeepSearchInput): Promise<DeepSearchOutp
     query_type: mode === 'semantic' ? 'ANN' : 'HYBRID',
   };
 
-  const filters: string[] = [];
-  if (source) filters.push(`source = '${source.replace(/'/g, "''")}'`);
-  if (type) filters.push(`type = '${type.replace(/'/g, "''")}'`);
-  if (filters.length > 0) {
-    body.filters_json = JSON.stringify({ filter_string: filters.join(' AND ') });
+  const filters: Record<string, string[]> = {};
+  if (source) filters['source'] = [source];
+  if (type) filters['type'] = [type];
+  if (Object.keys(filters).length > 0) {
+    body.filters_json = JSON.stringify(filters);
   }
 
   const url = `${host}/api/2.0/vector-search/indexes/${indexName}/query`;

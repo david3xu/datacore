@@ -10,13 +10,13 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC CREATE SCHEMA IF NOT EXISTS datacore;
-# MAGIC CREATE VOLUME IF NOT EXISTS datacore.default.bronze_upload;
+# MAGIC CREATE SCHEMA IF NOT EXISTS datacore_databricks.datacore;
+# MAGIC CREATE VOLUME IF NOT EXISTS datacore_databricks.datacore.bronze_upload;
 
 # COMMAND ----------
 
 # Check uploaded file
-volume_path = "/Volumes/datacore/default/bronze_upload"
+volume_path = "/Volumes/datacore_databricks/datacore/bronze_upload"
 try:
     files = dbutils.fs.ls(volume_path)
     for f in files:
@@ -47,31 +47,31 @@ df.select("event_id", "timestamp", "source", "type", "content").show(10, truncat
     .format("delta")
     .mode("overwrite")
     .option("overwriteSchema", "true")
-    .saveAsTable("datacore.default.bronze_events"))
+    .saveAsTable("datacore_databricks.datacore.bronze_events"))
 
-print("Written to datacore.default.bronze_events")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT source, count(*) as cnt FROM datacore.default.bronze_events GROUP BY source ORDER BY cnt DESC;
+print("Written to datacore_databricks.datacore.bronze_events")
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT type, count(*) as cnt FROM datacore.default.bronze_events GROUP BY type ORDER BY cnt DESC LIMIT 15;
+# MAGIC SELECT source, count(*) as cnt FROM datacore_databricks.datacore.bronze_events GROUP BY source ORDER BY cnt DESC;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT type, count(*) as cnt FROM datacore_databricks.datacore.bronze_events GROUP BY type ORDER BY cnt DESC LIMIT 15;
 
 # COMMAND ----------
 
 # MAGIC %sql
 # MAGIC SELECT event_id, timestamp, source, type, LEFT(content, 200) as preview
-# MAGIC FROM datacore.default.bronze_events WHERE source = 'claude.ai'
+# MAGIC FROM datacore_databricks.datacore.bronze_events WHERE source = 'claude.ai'
 # MAGIC ORDER BY timestamp DESC LIMIT 10;
 
 # COMMAND ----------
 
 from delta.tables import DeltaTable
-dt = DeltaTable.forName(spark, "datacore.default.bronze_events")
+dt = DeltaTable.forName(spark, "datacore_databricks.datacore.bronze_events")
 dt.history().select("version", "timestamp", "operation", "operationMetrics").show(truncate=40)
 
 # COMMAND ----------
