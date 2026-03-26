@@ -191,7 +191,7 @@ CI (GitHub Actions)     ✅  format → lint → build → test
   Pre-commit hook       ✅  same checks locally
     Linter (ESLint)     ✅  strict, no-any, eqeqeq
       Types (TypeScript)✅  strict mode, compiled
-        Tests           ✅  23 tests, 3 suites
+        Tests           ✅  30 tests, 4 suites
           Formatter     ✅  Prettier configured
             Schemas     ✅  Zod on all 4 tools
 ```

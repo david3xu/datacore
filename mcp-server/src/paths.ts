@@ -1,3 +1,4 @@
+// paths.ts — Where are the data files?
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 

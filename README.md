@@ -116,7 +116,7 @@ That gap is exactly what datacore solves.
 
 ## Current Status
 
-- **MCP server**: 4 tools (`log_event`, `search`, `get_tasks`, `deep_search`), TypeScript, 23 tests
+- **MCP server**: 4 tools (`log_event`, `search`, `get_tasks`, `deep_search`), TypeScript, 30 tests
 - **Bronze store**: 21,000+ events from 13 sources, JSONL append-only
 - **Silver layer**: Azure Databricks Vector Search (2,194 events indexed, managed embeddings)
 - **Connected**: Claude Desktop, OpenClaw, Codex, Gemini Antigravity
@@ -142,7 +142,7 @@ datacore/
 │   │   ├── types.ts         ← all interfaces
 │   │   ├── client.ts        ← programmatic MCP client
 │   │   └── paths.ts         ← file path resolution
-│   ├── tests/               ← 23 tests (Node.js built-in runner)
+│   ├── tests/               ← 30 tests (Node.js built-in runner)
 │   ├── scripts/             ← session watchers, export, smoke tests
 │   ├── package.json, tsconfig.json, eslint.config.js, .prettierrc
 │   └── dist/                ← compiled output (gitignored)

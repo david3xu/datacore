@@ -5,20 +5,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { shouldEmbed } from './embeddable.mjs';
 
 const BRONZE_DIR = process.env.DATACORE_BRONZE_DIR || path.join(os.homedir(), '.datacore', 'bronze');
 const OUTPUT = process.argv[2] || path.join(os.homedir(), '.datacore', 'export', 'bronze-all.jsonl');
-
-const EMBEDDABLE_TYPES = new Set([
-  'assistant_message', 'human_message', 'conversation',
-  'decision', 'action', 'insight', 'problem',
-  'task_created', 'task_completed', 'task_reviewed', 'task_started',
-  'message_preprocessed', 'message_sent',
-  'tool_summary', 'response_message', 'agent_message', 'message',
-  'tool_result', 'record', 'reasoning',
-]);
-
-const MIN_CONTENT_LENGTH = 50;
 
 function readBronzeFiles() {
   const files = fs.readdirSync(BRONZE_DIR).filter(f => f.endsWith('.jsonl')).sort();
@@ -33,12 +23,6 @@ function readBronzeFiles() {
     }
   }
   return { records, parseErrors, fileCount: files.length };
-}
-
-function shouldEmbed(record) {
-  if (!EMBEDDABLE_TYPES.has(record.type ?? '')) return false;
-  if ((record.content ?? '').length < MIN_CONTENT_LENGTH) return false;
-  return true;
 }
 
 const { records, parseErrors, fileCount } = readBronzeFiles();
