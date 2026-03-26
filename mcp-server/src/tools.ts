@@ -6,6 +6,7 @@ import { appendEvent, getBronzeDir } from './store.js';
 import { searchEvents } from './search.js';
 import { getTasks } from './tasks.js';
 import { deepSearch } from './deep-search.js';
+import { upsertEntity, queryEntities, getGoldDir } from './gold-store.js';
 
 function toTextResult(text: string, structuredContent?: unknown) {
   return {
@@ -224,6 +225,98 @@ export function registerTools(server: McpServer): void {
         }
         return toTextResult(`deep_search error: ${msg}`);
       }
+    },
+  );
+
+  // ─── get_facts ────────────────────────────────────────────
+  server.tool(
+    'get_facts',
+    'Query Gold entities — structured facts extracted from Bronze events. ' +
+      'Answers "what do we know about X?" rather than fuzzy search.',
+    {
+      entity_type: z
+        .string()
+        .optional()
+        .describe('Filter by entity type: decision, fact, project, tool'),
+      project: z.string().optional().describe('Filter by project name (partial match)'),
+      tag: z.string().optional().describe('Filter by tag (partial match)'),
+      query: z.string().optional().describe('Keyword search within entity summaries and data'),
+    },
+    {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    async ({ entity_type, project, tag, query }) => {
+      const result = await queryEntities({ entity_type, project, tag, query });
+
+      if (result.total === 0) {
+        const filters = [
+          entity_type && `type=${entity_type}`,
+          project && `project=${project}`,
+          tag && `tag=${tag}`,
+          query && `query="${query}"`,
+        ]
+          .filter(Boolean)
+          .join(', ');
+        return toTextResult(
+          `No Gold entities found${filters ? ` (${filters})` : ''} in ${getGoldDir()}`,
+          result,
+        );
+      }
+
+      const lines = result.entities
+        .map((e, i) => {
+          const meta = [
+            e.project && `project=${e.project}`,
+            e.tags?.length && `tags=[${e.tags.join(', ')}]`,
+            e.source_events?.length && `sources=${e.source_events.length}`,
+          ]
+            .filter(Boolean)
+            .join(' ');
+          return `${i + 1}. [${e.entity_type}] ${e.summary}${meta ? `\n   ${meta}` : ''}`;
+        })
+        .join('\n\n');
+
+      return toTextResult(
+        `Found ${result.total} Gold ${result.total === 1 ? 'entity' : 'entities'}\n\n${lines}`,
+        result,
+      );
+    },
+  );
+
+  // ─── add_entity ───────────────────────────────────────────
+  server.tool(
+    'add_entity',
+    'Create or update a Gold entity (structured fact). ' +
+      'Upserts by summary+project — same summary in same project updates rather than duplicates.',
+    {
+      entity_type: z
+        .string()
+        .min(1)
+        .describe('Entity type: decision, fact, project, tool, or custom'),
+      summary: z.string().min(1).describe('One-sentence summary of the entity'),
+      project: z.string().optional().describe('Project this entity belongs to'),
+      tags: z.array(z.string()).optional().describe('Tags for filtering'),
+      source_events: z
+        .array(z.string())
+        .optional()
+        .describe('Bronze event IDs that inform this entity'),
+      data: z.record(z.string(), z.unknown()).optional().describe('Structured entity data'),
+    },
+    {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    async ({ entity_type, summary, project, tags, source_events, data }) => {
+      const result = await upsertEntity({ entity_type, summary, project, tags, source_events, data });
+      return toTextResult(
+        `${result.action === 'created' ? 'Created' : 'Updated'} Gold entity ${result.entity_id} in ${result.file_path}`,
+        result,
+      );
     },
   );
 }

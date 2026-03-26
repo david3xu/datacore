@@ -3,9 +3,9 @@
 ## Project overview
 
 Cross-agent memory layer. MCP server exposing `log_event`, `search`,
-`get_tasks`, and `deep_search` tools. Bronze JSONL store locally.
-Silver layer on Azure Databricks (Vector Search + managed embeddings).
-Designed for Gold (curated facts) layer next.
+`get_tasks`, `deep_search`, `get_facts`, and `add_entity` tools.
+Bronze JSONL store locally. Silver layer on Azure Databricks (Vector
+Search + managed embeddings). Gold layer as local JSONL structured facts.
 
 ## Build & test commands
 
@@ -14,7 +14,7 @@ pnpm run build              # TypeScript → dist/
 pnpm run lint               # ESLint strict checks
 pnpm run format:check       # Prettier formatting check
 pnpm run format             # Auto-format all files
-pnpm run test               # 23 tests across 3 suites
+pnpm run test               # 43 tests across 5 suites
 pnpm run start              # Run compiled server (dist/server.js)
 ```
 
@@ -83,6 +83,7 @@ mcp-server/src/
   search.ts         ← How is data found? (full-text, filtering, snippets)
   deep-search.ts    ← How does semantic search work? (Databricks Vector Search API)
   tasks.ts          ← How are tasks tracked? (task parsing, status, board)
+  gold-store.ts     ← How are Gold entities stored? (upsert, query, JSONL)
   types.ts          ← What shapes exist? (all interfaces)
   client.ts         ← How to connect programmatically?
   paths.ts          ← Where are files?
@@ -96,6 +97,12 @@ Tests import from `dist/`. Entry point: `dist/server.js`.
 Bronze events are JSONL files at `~/.datacore/bronze/YYYY-MM-DD.jsonl`.
 One file per day. Events have: source, type, content, context, _timestamp,
 _source, _event_id.
+
+Gold entities are JSONL files at `~/.datacore/gold/{type}s.jsonl`.
+Structured facts extracted from Bronze. Entity fields: entity_type,
+entity_id, summary, project, tags, source_events, data, created_at, updated_at.
+Upsert logic: same summary+project = update, otherwise create new.
+Promote from Bronze: `node scripts/promote-to-gold.mjs`.
 
 Silver layer lives on Azure Databricks:
 - Delta table: `datacore_databricks.datacore.bronze_events` (2,194 events)
@@ -191,7 +198,7 @@ CI (GitHub Actions)     ✅  format → lint → build → test
   Pre-commit hook       ✅  same checks locally
     Linter (ESLint)     ✅  strict, no-any, eqeqeq
       Types (TypeScript)✅  strict mode, compiled
-        Tests           ✅  30 tests, 4 suites
+        Tests           ✅  43 tests, 5 suites
           Formatter     ✅  Prettier configured
-            Schemas     ✅  Zod on all 4 tools
+            Schemas     ✅  Zod on all 6 tools
 ```

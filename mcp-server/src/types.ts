@@ -1,5 +1,46 @@
 // types.ts — What shapes exist in the system?
 
+// ─── Gold Layer ─────────────────────────────────────────────
+
+export interface GoldEntity {
+  entity_type: string;
+  entity_id: string;
+  summary: string;
+  project?: string;
+  tags?: string[];
+  source_events?: string[];
+  data?: unknown;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AddEntityInput {
+  entity_type: string;
+  summary: string;
+  project?: string;
+  tags?: string[];
+  source_events?: string[];
+  data?: unknown;
+}
+
+export interface AddEntityResult {
+  entity_id: string;
+  file_path: string;
+  action: 'created' | 'updated';
+}
+
+export interface GetFactsInput {
+  entity_type?: string;
+  project?: string;
+  tag?: string;
+  query?: string;
+}
+
+export interface GetFactsResult {
+  entities: GoldEntity[];
+  total: number;
+}
+
 export interface BronzeRecord {
   source: string;
   type: string;
