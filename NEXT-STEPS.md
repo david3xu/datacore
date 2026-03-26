@@ -9,7 +9,7 @@
 | # | Task | Status |
 |---|---|---|
 | 1 | Fix git author | ✅ Done |
-| 4 | Verify CI (CodeQL + tests) | ✅ 43 tests, 5 suites pass |
+| 4 | Verify CI (CodeQL + tests) | ✅ 51 tests, 6 suites pass |
 | 5 | LICENSE | ✅ MIT |
 | 6 | Clean scripts | ✅ -1,619 lines removed |
 | 7 | Integration test | ✅ mcp-roundtrip.test.mjs |

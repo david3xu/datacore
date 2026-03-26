@@ -105,7 +105,7 @@ That gap is exactly what datacore solves.
 
 | Skill | Implementation | Azure Service |
 |---|---|---|
-| MCP server development | TypeScript, 4 tools, stdio transport | — |
+| MCP server development | TypeScript, 6 tools, stdio transport | — |
 | Data lake architecture | Medallion pattern (Bronze/Silver/Gold) | ADLS Gen2 + Databricks |
 | Semantic search | Hybrid keyword + vector search | Mosaic AI Vector Search |
 | Managed embeddings | Auto-embed from Delta table | Foundation Model APIs (gte-large-en) |
@@ -116,7 +116,7 @@ That gap is exactly what datacore solves.
 
 ## Current Status
 
-- **MCP server**: 4 tools (`log_event`, `search`, `get_tasks`, `deep_search`), TypeScript, 43 tests
+- **MCP server**: 6 tools (`log_event`, `search`, `get_tasks`, `deep_search`, `get_facts`, `add_entity`), TypeScript, 51 tests
 - **Bronze store**: 21,000+ events from 13 sources, JSONL append-only
 - **Silver layer**: Azure Databricks Vector Search (2,194 events indexed, managed embeddings)
 - **Connected**: Claude Desktop, OpenClaw, Codex, Gemini Antigravity
@@ -130,7 +130,7 @@ That gap is exactly what datacore solves.
 datacore/
 ├── README.md                ← this file
 ├── CLAUDE.md                ← agent guidelines (gotchas, patterns, workflow)
-├── API.md                   ← MCP tool reference (4 tools, schemas, examples)
+├── API.md                   ← MCP tool reference (6 tools, schemas, examples)
 ├── .github/workflows/       ← CI pipeline
 ├── mcp-server/
 │   ├── src/                 ← TypeScript source (strict mode)
@@ -143,7 +143,7 @@ datacore/
 │   │   ├── types.ts         ← all interfaces
 │   │   ├── client.ts        ← programmatic MCP client
 │   │   └── paths.ts         ← file path resolution
-│   ├── tests/               ← 43 tests (Node.js built-in runner)
+│   ├── tests/               ← 51 tests (Node.js built-in runner)
 │   ├── scripts/             ← session watchers, export, smoke tests
 │   ├── package.json, tsconfig.json, eslint.config.js, .prettierrc
 │   └── dist/                ← compiled output (gitignored)

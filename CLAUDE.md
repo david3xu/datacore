@@ -14,7 +14,7 @@ pnpm run build              # TypeScript → dist/
 pnpm run lint               # ESLint strict checks
 pnpm run format:check       # Prettier formatting check
 pnpm run format             # Auto-format all files
-pnpm run test               # 43 tests across 5 suites
+pnpm run test               # 51 tests across 6 suites
 pnpm run start              # Run compiled server (dist/server.js)
 ```
 
@@ -24,7 +24,7 @@ pnpm run start              # Run compiled server (dist/server.js)
 
 1. Run `pnpm run build` — TypeScript must compile clean
 2. Run `pnpm run lint` — zero warnings, zero errors
-3. Run `pnpm run test` — all 43 tests must pass
+3. Run `pnpm run test` — all 51 tests must pass
 4. Run `pnpm run format:check` — all files must be formatted
 5. Update this file if you discovered a new gotcha
 
@@ -198,7 +198,7 @@ CI (GitHub Actions)     ✅  format → lint → build → test
   Pre-commit hook       ✅  same checks locally
     Linter (ESLint)     ✅  strict, no-any, eqeqeq
       Types (TypeScript)✅  strict mode, compiled
-        Tests           ✅  43 tests, 5 suites
+        Tests           ✅  51 tests, 6 suites
           Formatter     ✅  Prettier configured
             Schemas     ✅  Zod on all 6 tools
 ```
