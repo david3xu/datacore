@@ -24,7 +24,7 @@ pnpm run start              # Run compiled server (dist/server.js)
 
 1. Run `pnpm run build` — TypeScript must compile clean
 2. Run `pnpm run lint` — zero warnings, zero errors
-3. Run `pnpm run test` — all 23 tests must pass
+3. Run `pnpm run test` — all 43 tests must pass
 4. Run `pnpm run format:check` — all files must be formatted
 5. Update this file if you discovered a new gotcha
 

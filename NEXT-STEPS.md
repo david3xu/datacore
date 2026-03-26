@@ -9,65 +9,46 @@
 | # | Task | Status |
 |---|---|---|
 | 1 | Fix git author | ✅ Done |
-| 4 | Verify CI | ✅ 23 tests pass |
+| 4 | Verify CI (CodeQL + tests) | ✅ 43 tests, 5 suites pass |
 | 5 | LICENSE | ✅ MIT |
 | 6 | Clean scripts | ✅ -1,619 lines removed |
 | 7 | Integration test | ✅ mcp-roundtrip.test.mjs |
-| 8 | Silver layer | ✅ Azure Databricks Vector Search deployed |
+| 8 | Silver layer | ✅ Databricks Vector Search + Auto Loader |
+| 9 | Data refresh pipeline | ✅ Auto Loader daily sync (launchd 6 AM) |
+| 10 | Improvement plan 10/10 | ✅ All 4 sprints shipped |
+| 11 | Code discipline audit | ✅ 26 checks, 92% pass |
+| 12 | Gold layer design | ✅ GOLD-DESIGN.md (244 lines) |
+| 13 | Schema governance | ✅ SCHEMA.md rewritten (157 lines) |
+| 14 | AI memory architecture | ✅ AI-MEMORY-ARCHITECTURE.md (392 lines) |
 
 ## What's next
 
-### 1. Data refresh pipeline
+### 1. Gold layer Phase 1 (DELEGATED to OpenClaw)
 
-**Priority:** High
-**Why:** Bronze data in Databricks (2,194 events) is a snapshot from March 25.
-Local Bronze keeps growing (21K+ events). Need a repeatable way to sync.
+**Priority:** High — task GOLD-PHASE-1 in Bronze
+**What:** gold-store.ts + get_facts/add_entity MCP tools + promote-to-gold.mjs
+**Acceptance:** get_facts returns structured entities, promote script processes 226 events
+**Status:** Task spec logged to Bronze, awaiting OpenClaw dispatch
 
-**Options:**
-- Run `export-for-databricks.mjs` → re-upload → overwrite Delta table (simple)
-- Set up Auto Loader watching ADLS Gen2 landing zone (production-grade)
-- Schedule a Databricks job to run weekly
+### 2. Memory pipeline (depends on Gold)
 
-**Acceptance:** New local events appear in Vector Search results.
+**Priority:** Medium — task MEMORY-PIPELINE in Bronze
+**What:** Compaction → Bronze hook, session startup enrichment, content_summary
+**Acceptance:** MEMORY.md auto-updates at session start with recent facts
 
----
-
-### 2. Blog updates
+### 3. Blog + content
 
 **Priority:** Medium
-**Why:** blog-puce-one.vercel.app needs datacore project page.
+**What:** Datacore project page, "what I learned" article, LinkedIn posts queued
 
-**Do this:**
-- Add datacore project page with architecture diagram
-- Add "what I learned" post about Databricks Vector Search
+### 4. Quick wins from enterprise eval
 
----
+**Priority:** Low effort, do anytime
+- Trust-tagged events (add _trust field to store.ts)
+- Status/observability MCP tool
+- Version tag (git tag v0.2.0)
+- Informal SLIs from daily-sync logs
 
-### 3. Gold layer design
-
-**Priority:** Low (research first)
-**Why:** Gold = curated facts extracted from events. "What projects am I
-working on?" answered instantly from structured data, not search.
-
-**Research needed:**
-- What entity types emerge from our events? (projects, decisions, people)
-- How to extract entities from free-text events?
-- Where to store: Delta table? Separate MCP tool?
-
----
-
-### 4. Kaggle — NVIDIA Nemotron
+### 5. Kaggle — NVIDIA Nemotron
 
 **Priority:** Parked
-**Why:** Competition uses free Kaggle GPU (T4/L4), targets Nemotron-3-Nano-4B.
-Pick up when other tasks are done.
-
----
-
-### 5. Convert notebooks to Lakeflow pipeline
-
-**Priority:** Low (portfolio value)
-**Why:** Shows enterprise pipeline knowledge. Current notebooks work fine,
-but Lakeflow adds: quality expectations, automatic retries, dependency tracking.
-
-**Do this after:** Data refresh pipeline is working via notebooks.

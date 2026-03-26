@@ -42,7 +42,14 @@ after(async () => {
 test('server exposes exactly 6 tools', async () => {
   const tools = await client.listTools();
   const names = tools.tools.map((t) => t.name).sort();
-  assert.deepEqual(names, ['add_entity', 'deep_search', 'get_facts', 'get_tasks', 'log_event', 'search']);
+  assert.deepEqual(names, [
+    'add_entity',
+    'deep_search',
+    'get_facts',
+    'get_tasks',
+    'log_event',
+    'search',
+  ]);
 });
 
 test('log_event writes an event and returns success', async () => {

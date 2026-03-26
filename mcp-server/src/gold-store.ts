@@ -85,9 +85,7 @@ export async function upsertEntity(input: AddEntityInput): Promise<AddEntityResu
 
   // Read existing entities to check for duplicates
   const existing = await readGoldEntities(entity_type);
-  const duplicate = existing.find(
-    (e) => contentHash(e.summary, e.project ?? '') === hash,
-  );
+  const duplicate = existing.find((e) => contentHash(e.summary, e.project ?? '') === hash);
 
   const now = new Date().toISOString();
 
@@ -96,15 +94,11 @@ export async function upsertEntity(input: AddEntityInput): Promise<AddEntityResu
     const updated: GoldEntity = {
       ...duplicate,
       tags: Array.from(new Set([...(duplicate.tags ?? []), ...tags])),
-      source_events: Array.from(
-        new Set([...(duplicate.source_events ?? []), ...source_events]),
-      ),
+      source_events: Array.from(new Set([...(duplicate.source_events ?? []), ...source_events])),
       data: data !== undefined ? data : duplicate.data,
       updated_at: now,
     };
-    const others = existing.filter(
-      (e) => contentHash(e.summary, e.project ?? '') !== hash,
-    );
+    const others = existing.filter((e) => contentHash(e.summary, e.project ?? '') !== hash);
     const all = [...others, updated];
     await fs.writeFile(filePath, all.map((e) => JSON.stringify(e)).join('\n') + '\n', 'utf8');
     return { entity_id: updated.entity_id, file_path: filePath, action: 'updated' };
@@ -149,7 +143,9 @@ export async function queryEntities(input: GetFactsInput): Promise<GetFactsResul
     filtered = filtered.filter(
       (e) =>
         e.summary.toLowerCase().includes(q) ||
-        JSON.stringify(e.data ?? '').toLowerCase().includes(q),
+        JSON.stringify(e.data ?? '')
+          .toLowerCase()
+          .includes(q),
     );
   }
 

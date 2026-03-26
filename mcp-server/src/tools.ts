@@ -312,7 +312,14 @@ export function registerTools(server: McpServer): void {
       openWorldHint: false,
     },
     async ({ entity_type, summary, project, tags, source_events, data }) => {
-      const result = await upsertEntity({ entity_type, summary, project, tags, source_events, data });
+      const result = await upsertEntity({
+        entity_type,
+        summary,
+        project,
+        tags,
+        source_events,
+        data,
+      });
       return toTextResult(
         `${result.action === 'created' ? 'Created' : 'Updated'} Gold entity ${result.entity_id} in ${result.file_path}`,
         result,
