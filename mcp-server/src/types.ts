@@ -168,3 +168,31 @@ export interface TaskHistoryResult {
 }
 
 export type TaskResult = TaskBoardResult | TaskHistoryResult;
+
+// ─── Questions (R14 Async Comms) ────────────────────────────
+
+export interface QuestionInput {
+  directed_to?: string;
+  status?: 'open' | 'answered' | 'all';
+  task_id?: string;
+  limit?: number;
+}
+
+export interface QuestionSummary {
+  thread_id: string;
+  question: string;
+  asked_by: string | null;
+  directed_to: string | null;
+  task_id: string | null;
+  status: 'open' | 'answered';
+  asked_at: string | null;
+  answered_at: string | null;
+  answer: string | null;
+  answered_by: string | null;
+}
+
+export interface QuestionResult {
+  bronzeDir: string;
+  total: number;
+  questions: QuestionSummary[];
+}

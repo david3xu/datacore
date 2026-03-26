@@ -7,6 +7,7 @@ import { searchEvents } from './search.js';
 import { getTasks } from './tasks.js';
 import { deepSearch } from './deep-search.js';
 import { upsertEntity, queryEntities, getGoldDir } from './gold-store.js';
+import { getQuestions } from './questions.js';
 
 function toTextResult(text: string, structuredContent?: unknown) {
   return {
@@ -322,6 +323,71 @@ export function registerTools(server: McpServer): void {
       });
       return toTextResult(
         `${result.action === 'created' ? 'Created' : 'Updated'} Gold entity ${result.entity_id} in ${result.file_path}`,
+        result,
+      );
+    },
+  );
+
+  // ─── get_questions ────────────────────────────────────────
+  server.tool(
+    'get_questions',
+    'Query async questions between AI agents. ' +
+      'Agents post questions via log_event(type="question"), others answer via log_event(type="answer"). ' +
+      'Check at session start for pending questions directed to you.',
+    {
+      directed_to: z
+        .string()
+        .optional()
+        .describe('Filter by who the question is directed to (e.g. "claude-desktop")'),
+      status: z
+        .enum(['open', 'answered', 'all'])
+        .optional()
+        .describe('Filter by status: open (unanswered), answered, or all. Default: open'),
+      task_id: z.string().optional().describe('Filter by task_id in question context'),
+      limit: z.number().optional().describe('Max results to return. Default: 10'),
+    },
+    {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    async ({ directed_to, status, task_id, limit }) => {
+      const result = await getQuestions({ directed_to, status, task_id, limit });
+
+      if (result.total === 0) {
+        const filters = [
+          directed_to && `directed_to=${directed_to}`,
+          status && `status=${status}`,
+          task_id && `task_id=${task_id}`,
+        ]
+          .filter(Boolean)
+          .join(', ');
+        return toTextResult(
+          `No questions found${filters ? ` (${filters})` : ''} in ${result.bronzeDir}`,
+          result,
+        );
+      }
+
+      const lines = result.questions
+        .map((q, i) => {
+          const meta = [
+            q.asked_by && `from=${q.asked_by}`,
+            q.directed_to && `to=${q.directed_to}`,
+            q.task_id && `task=${q.task_id}`,
+          ]
+            .filter(Boolean)
+            .join(' ');
+          const statusIcon = q.status === 'open' ? '❓' : '✅';
+          let line = `${i + 1}. ${statusIcon} [${q.thread_id}] ${q.question.slice(0, 200)}`;
+          if (meta) line += `\n   ${meta}`;
+          if (q.answer) line += `\n   → ${q.answer.slice(0, 200)}`;
+          return line;
+        })
+        .join('\n\n');
+
+      return toTextResult(
+        `Found ${result.total} question${result.total === 1 ? '' : 's'}\n\n${lines}`,
         result,
       );
     },

@@ -154,6 +154,83 @@ embeddings for vector similarity.
 
 ---
 
+## `get_facts`
+
+Query Gold entities — structured facts extracted from Bronze events.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| entity_type | string | no | — | Filter: decision, fact, project, tool |
+| project | string | no | — | Filter by project name (partial match) |
+| tag | string | no | — | Filter by tag (partial match) |
+| query | string | no | — | Keyword search in summary and data |
+
+**Example:**
+```json
+{ "entity_type": "decision", "project": "datacore" }
+```
+
+Returns `{ entities: GoldEntity[], total: number }`.
+
+---
+
+## `add_entity`
+
+Create or update a Gold entity. Upserts by summary+project (SHA-256 content hash).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| entity_type | string | yes | Entity type (decision, fact, project, tool, or custom) |
+| summary | string | yes | One-sentence summary |
+| project | string | no | Project this entity belongs to |
+| tags | string[] | no | Tags for filtering |
+| source_events | string[] | no | Bronze event IDs that inform this entity |
+| data | object | no | Structured entity data |
+
+**Example:**
+```json
+{ "entity_type": "decision", "summary": "Use Databricks over LanceDB", "project": "datacore" }
+```
+
+Returns `{ entity_id, file_path, action: "created" | "updated" }`.
+
+---
+
+## `get_questions`
+
+Query async questions between AI agents (R14 protocol).
+Agents post questions via `log_event(type="question")`, others answer via `log_event(type="answer")`.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| directed_to | string | no | — | Filter: who the question is aimed at |
+| status | string | no | "open" | "open", "answered", or "all" |
+| task_id | string | no | — | Filter by task context |
+| limit | number | no | 10 | Max results |
+
+**Question event format** (logged via `log_event`):
+```json
+{
+  "source": "gemini", "type": "question",
+  "content": "Should entity_type be enum or free string?",
+  "context": { "thread_id": "q-2026-03-26-001", "task_id": "GOLD-PHASE-1",
+               "asked_by": "gemini", "directed_to": "claude-desktop", "status": "open" }
+}
+```
+
+**Answer event format:**
+```json
+{
+  "source": "claude-desktop", "type": "answer",
+  "content": "Free string. Validate at display time.",
+  "context": { "thread_id": "q-2026-03-26-001", "answered_by": "claude-desktop", "status": "answered" }
+}
+```
+
+Returns `{ total, questions: QuestionSummary[] }`.
+
+---
+
 ## Connection
 
 Transport: **stdio** (stdin/stdout JSON-RPC)

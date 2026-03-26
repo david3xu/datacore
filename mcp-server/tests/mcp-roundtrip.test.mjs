@@ -39,13 +39,14 @@ after(async () => {
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
-test('server exposes exactly 6 tools', async () => {
+test('server exposes exactly 7 tools', async () => {
   const tools = await client.listTools();
   const names = tools.tools.map((t) => t.name).sort();
   assert.deepEqual(names, [
     'add_entity',
     'deep_search',
     'get_facts',
+    'get_questions',
     'get_tasks',
     'log_event',
     'search',
