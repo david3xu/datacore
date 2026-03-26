@@ -75,7 +75,39 @@ function buildOutboundPayload(event) {
   };
 }
 
+function buildBootstrapPayload(event) {
+  // Log session start — captures context window resets (including post-compaction starts).
+  // bootstrapFiles is an array of { path, content } workspace files injected at session start.
+  const files = Array.isArray(event.context.bootstrapFiles)
+    ? event.context.bootstrapFiles.map((f) => readString(f?.path)).filter(Boolean)
+    : [];
+
+  const content = [
+    `Session started: ${event.sessionKey}`,
+    files.length > 0 ? `Bootstrap files: ${files.join(", ")}` : null,
+  ]
+    .filter(Boolean)
+    .join(". ");
+
+  return {
+    source: "openclaw",
+    type: "session_start",
+    content,
+    context: compactRecord({
+      app: "openclaw",
+      hookAction: event.action,
+      sessionKey: event.sessionKey,
+      observedAt: event.timestamp.toISOString(),
+      bootstrapFileCount: files.length,
+      bootstrapFiles: files.length > 0 ? files : undefined,
+    }),
+  };
+}
+
 function toPayload(event) {
+  if (event.type === "agent" && event.action === "bootstrap") {
+    return buildBootstrapPayload(event);
+  }
   if (event.type !== "message") {
     return null;
   }

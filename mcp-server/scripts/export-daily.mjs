@@ -13,13 +13,47 @@ const EXPORT_DIR = path.join(os.homedir(), '.datacore', 'export', 'daily');
 const LOG_DIR = path.join(os.homedir(), '.datacore', 'logs');
 const REJECT_LOG = path.join(LOG_DIR, 'rejected-events.log');
 
+const SUMMARY_MIN_CONTENT_LENGTH = 200;
+
+/**
+ * Extract a compact summary from event content for better Silver embeddings.
+ * Rule-based only — no LLM calls. For content >200 chars: first sentence + key entities.
+ * Returns null for short content (embed as-is).
+ */
+function extractContentSummary(content) {
+  if (!content || content.length < SUMMARY_MIN_CONTENT_LENGTH) {
+    return null;
+  }
+
+  // First sentence: split on '. ', '.\n', '! ', '? ' — take up to 300 chars
+  const firstSentenceMatch = content.match(/^(.{20,300}?[.!?])(?:\s|$)/s);
+  const firstSentence = firstSentenceMatch
+    ? firstSentenceMatch[1].trim()
+    : content.slice(0, 200).trim();
+
+  // Key named entities: capitalised words, known prefixes, version strings
+  const entityPattern =
+    /\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)*|[A-Z]{2,}|v\d+\.\d+[\w.]*|R\d{1,3}(?:-\w+)?)\b/g;
+  const entities = [...new Set((content.match(entityPattern) ?? []))].slice(0, 8);
+
+  const summary = entities.length > 0
+    ? `${firstSentence} [${entities.join(', ')}]`
+    : firstSentence;
+
+  // Only include if meaningfully shorter than original (>20% reduction)
+  return summary.length < content.length * 0.8 ? summary : null;
+}
+
 function cleanRecord(r, bronzeFile) {
+  const content = r.content ?? '';
+  const contentSummary = extractContentSummary(content);
   return {
     event_id: r._event_id ?? null,
     timestamp: r._timestamp ?? null,
     source: r._source ?? r.source ?? null,
     type: r.type ?? null,
-    content: r.content ?? '',
+    content,
+    ...(contentSummary !== null ? { content_summary: contentSummary } : {}),
     context_json: r.context ? JSON.stringify(r.context) : null,
     bronze_file: bronzeFile,
   };
