@@ -1,4 +1,5 @@
 // store.ts — How is data stored?
+// Appends events to daily JSONL files with sanitization.
 
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -78,6 +79,14 @@ export async function readAllRecords(filters: Filters = {}): Promise<ReadAllResu
   return { bronzeDir, files, records, parseErrors };
 }
 
+const MAX_CONTENT_LENGTH = 50_000;
+
+function sanitize(text: string): string {
+  // Strip null bytes and control chars (except newline, tab)
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').slice(0, MAX_CONTENT_LENGTH);
+}
+
 export async function appendEvent({
   source,
   type,
@@ -87,12 +96,12 @@ export async function appendEvent({
   const bronzeDir = resolveBronzeDir();
   const timestamp = new Date().toISOString();
   const record: BronzeRecord = {
-    source,
-    type,
-    content,
+    source: sanitize(source),
+    type: sanitize(type),
+    content: sanitize(content),
     ...(context !== undefined ? { context } : {}),
     _timestamp: timestamp,
-    _source: source,
+    _source: sanitize(source),
     _event_id: randomUUID(),
   };
   const filePath = path.join(bronzeDir, `${dayStamp(timestamp)}.jsonl`);

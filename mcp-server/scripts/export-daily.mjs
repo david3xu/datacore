@@ -6,10 +6,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { shouldEmbed } from './embeddable.mjs';
+import { shouldEmbed, validateForSilver } from './embeddable.mjs';
 
 const BRONZE_DIR = process.env.DATACORE_BRONZE_DIR || path.join(os.homedir(), '.datacore', 'bronze');
 const EXPORT_DIR = path.join(os.homedir(), '.datacore', 'export', 'daily');
+const LOG_DIR = path.join(os.homedir(), '.datacore', 'logs');
+const REJECT_LOG = path.join(LOG_DIR, 'rejected-events.log');
 
 function cleanRecord(r, bronzeFile) {
   return {
@@ -24,11 +26,13 @@ function cleanRecord(r, bronzeFile) {
 }
 
 fs.mkdirSync(EXPORT_DIR, { recursive: true });
+fs.mkdirSync(LOG_DIR, { recursive: true });
 
 const bronzeFiles = fs.readdirSync(BRONZE_DIR)
   .filter(f => f.endsWith('.jsonl')).sort();
 
-let totalEvents = 0, totalEmbeddable = 0, newFiles = 0, skippedFiles = 0;
+let totalEvents = 0, totalEmbeddable = 0, totalRejected = 0, newFiles = 0, skippedFiles = 0;
+const rejections = [];
 
 for (const file of bronzeFiles) {
   const exportPath = path.join(EXPORT_DIR, file);
@@ -52,22 +56,43 @@ for (const file of bronzeFiles) {
   }
 
   const embeddable = records.filter(shouldEmbed);
+  const validated = [];
+  for (const r of embeddable) {
+    const { valid, reasons } = validateForSilver(r);
+    if (valid) {
+      validated.push(r);
+    } else {
+      totalRejected++;
+      rejections.push({ file, id: r._event_id ?? '?', reasons });
+    }
+  }
   totalEvents += records.length;
-  totalEmbeddable += embeddable.length;
+  totalEmbeddable += validated.length;
 
-  if (embeddable.length === 0) {
+  if (validated.length === 0) {
     skippedFiles++;
     continue;
   }
 
-  const output = embeddable.map(r => JSON.stringify(cleanRecord(r, file))).join('\n') + '\n';
+  const output = validated.map(r => JSON.stringify(cleanRecord(r, file))).join('\n') + '\n';
   fs.writeFileSync(exportPath, output);
   newFiles++;
-  console.log(`  ${file}: ${embeddable.length}/${records.length} events`);
+  console.log(`  ${file}: ${validated.length}/${records.length} events${totalRejected > 0 ? ` (${rejections.filter(r => r.file === file).length} rejected)` : ''}`);
 }
 
 console.log(`\nExport complete:`);
 console.log(`  Bronze files:  ${bronzeFiles.length}`);
 console.log(`  New/updated:   ${newFiles}`);
 console.log(`  Skipped:       ${skippedFiles}`);
+console.log(`  Accepted:      ${totalEmbeddable}`);
+console.log(`  Rejected:      ${totalRejected}`);
 console.log(`  Output dir:    ${EXPORT_DIR}`);
+
+if (rejections.length > 0) {
+  const ts = new Date().toISOString();
+  const lines = rejections.map(r =>
+    `${ts} ${r.file} ${r.id} ${r.reasons.join('; ')}`
+  ).join('\n') + '\n';
+  fs.appendFileSync(REJECT_LOG, lines);
+  console.log(`  Rejection log: ${REJECT_LOG}`);
+}

@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
-// server.ts — How does the server start?
-
 // server.ts — How does the MCP server start?
+// Handles graceful shutdown on SIGINT/SIGTERM (flushes MCP connection before exit).
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerTools } from './tools.js';
