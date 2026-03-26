@@ -57,15 +57,14 @@ all support MCP. Datacore is an MCP server that exposes:
 
 **Write tools** — how data gets in:
 - `log_event` → raw event to Bronze (any AI can call this)
+- `add_entity` → structured fact to Gold layer (upserts by content hash)
 
 **Read tools** — how data comes out:
 - `search` → keyword grep across all local Bronze events (instant)
 - `deep_search` → semantic search via Azure Databricks Vector Search (meaning-based)
 - `get_tasks` → task board derived from task events
-
-**Planned:**
-- `add_entity` → extracted entity to knowledge graph (Gold layer)
-- `get_facts` → cached answers for known questions (Gold layer)
+- `get_facts` → structured Gold entities (decisions, capabilities, facts)
+- `get_questions` → async AI-to-AI question/answer protocol (R14)
 
 ## Architecture: Medallion + Knowledge Graph + MCP
 
@@ -116,7 +115,7 @@ That gap is exactly what datacore solves.
 
 ## Current Status
 
-- **MCP server**: 7 tools (`log_event`, `search`, `get_tasks`, `deep_search`, `get_facts`, `add_entity`), TypeScript, 56 tests
+- **MCP server**: 7 tools (`log_event`, `search`, `get_tasks`, `deep_search`, `get_facts`, `add_entity`, `get_questions`), TypeScript, 56 tests
 - **Bronze store**: 21,000+ events from 13 sources, JSONL append-only
 - **Silver layer**: Azure Databricks Vector Search (2,194 events indexed, managed embeddings)
 - **Connected**: Claude Desktop, OpenClaw, Codex, Gemini Antigravity

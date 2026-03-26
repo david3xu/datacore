@@ -20,35 +20,25 @@
 | 12 | Gold layer design | ✅ GOLD-DESIGN.md (244 lines) |
 | 13 | Schema governance | ✅ SCHEMA.md rewritten (157 lines) |
 | 14 | AI memory architecture | ✅ AI-MEMORY-ARCHITECTURE.md (392 lines) |
+| 15 | R14: async AI-to-AI comms | ✅ get_questions tool (questions.ts, 5 tests) |
+| 16 | R16: capability registry | ✅ 4 agent Gold entities |
+| 17 | R18: RPA dispatcher | ✅ dispatch-to.sh (192 lines, AppleScript) |
 
 ## What's next
 
-### 1. Gold layer Phase 1 (DELEGATED to OpenClaw)
+### 1. OpenClaw dispatch integration
 
-**Priority:** High — task GOLD-PHASE-1 in Bronze
-**What:** gold-store.ts + get_facts/add_entity MCP tools + promote-to-gold.mjs
-**Acceptance:** get_facts returns structured entities, promote script processes 226 events
-**Status:** Task spec logged to Bronze, awaiting OpenClaw dispatch
+**Priority:** High
+**What:** Wire dispatch-to.sh into OpenClaw's task assignment flow.
+OpenClaw reads capabilities from Gold, matches task to agent, calls dispatch-to.sh.
+**Status:** dispatch-to.sh built, capability registry seeded, needs OpenClaw wiring.
 
-### 2. Memory pipeline (depends on Gold)
-
-**Priority:** Medium — task MEMORY-PIPELINE in Bronze
-**What:** Compaction → Bronze hook, session startup enrichment, content_summary
-**Acceptance:** MEMORY.md auto-updates at session start with recent facts
-
-### 3. Blog + content
+### 2. Blog + content
 
 **Priority:** Medium
-**What:** Datacore project page, "what I learned" article, LinkedIn posts queued
+**What:** Article #2: "4 memory layers every system needs"
+Article #1 ("Why AI agents need shared memory") is live on Vercel.
 
-### 4. Quick wins from enterprise eval
-
-**Priority:** Low effort, do anytime
-- Trust-tagged events (add _trust field to store.ts)
-- Status/observability MCP tool
-- Version tag (git tag v0.2.0)
-- Informal SLIs from daily-sync logs
-
-### 5. Kaggle — NVIDIA Nemotron
+### 3. Kaggle — NVIDIA Nemotron
 
 **Priority:** Parked
