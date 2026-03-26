@@ -130,6 +130,7 @@ That gap is exactly what datacore solves.
 datacore/
 ├── README.md                ← this file
 ├── CLAUDE.md                ← agent guidelines (gotchas, patterns, workflow)
+├── API.md                   ← MCP tool reference (4 tools, schemas, examples)
 ├── .github/workflows/       ← CI pipeline
 ├── mcp-server/
 │   ├── src/                 ← TypeScript source (strict mode)

@@ -1,5 +1,6 @@
 #!/bin/bash
 # daily-sync.sh — Full pipeline: export → upload → trigger Auto Loader
+# Uses saga pattern: state file tracks progress, resumes from failure point.
 # Run daily via launchd or manually.
 # Requires: az login, DATABRICKS_HOST, DATABRICKS_TOKEN
 
@@ -8,9 +9,39 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$HOME/.datacore/logs"
 LOG_FILE="$LOG_DIR/daily-sync.log"
+STATE_FILE="$LOG_DIR/sync-state.json"
 mkdir -p "$LOG_DIR"
 
 log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $1" | tee -a "$LOG_FILE"; }
+
+# ─── Saga state management ───
+# State file tracks: { step, started_at, job_id, run_id, error }
+# On success: state file is cleared
+# On failure: state file records which step failed
+# On next run: resumes from the failed step
+
+write_state() {
+  python3 -c "
+import json, sys
+data = json.loads(sys.argv[1]) if len(sys.argv) > 1 else {}
+with open('$STATE_FILE', 'w') as f:
+    json.dump(data, f, indent=2)
+" "$1"
+}
+
+read_state_field() {
+  python3 -c "
+import json, sys
+try:
+    with open('$STATE_FILE') as f:
+        print(json.load(f).get(sys.argv[1], ''))
+except: pass
+" "$1" 2>/dev/null
+}
+
+clear_state() {
+  rm -f "$STATE_FILE"
+}
 
 # retry_curl — exponential backoff with full jitter.
 # Usage: retry_curl [curl args...]
@@ -62,16 +93,38 @@ retry_curl() {
 
 log "=== Daily sync started ==="
 
-# Step 1: Export per-day JSONL
-log "Step 1: Export Bronze → per-day JSONL"
-node "$SCRIPT_DIR/export-daily.mjs" 2>&1 | tee -a "$LOG_FILE"
+# Check for resume from previous failure
+RESUME_STEP=$(read_state_field "step")
+if [ -n "$RESUME_STEP" ]; then
+  PREV_ERROR=$(read_state_field "error")
+  log "  Resuming from step $RESUME_STEP (previous error: $PREV_ERROR)"
+fi
 
-# Step 2: Upload to ADLS Gen2
-log "Step 2: Upload to ADLS Gen2"
-bash "$SCRIPT_DIR/upload-to-adls.sh" 2>&1 | tee -a "$LOG_FILE"
+# ─── Step 1: Export ───
+if [ -z "$RESUME_STEP" ] || [ "$RESUME_STEP" -le 1 ]; then
+  log "Step 1: Export Bronze → per-day JSONL"
+  write_state '{"step":1,"started_at":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+  if ! node "$SCRIPT_DIR/export-daily.mjs" 2>&1 | tee -a "$LOG_FILE"; then
+    write_state '{"step":1,"error":"export failed","failed_at":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+    log "FAILED at step 1 (export). Run again to retry."
+    exit 1
+  fi
+fi
 
-# Step 3: Trigger Databricks Job (Auto Loader notebook)
+# ─── Step 2: Upload ───
+if [ -z "$RESUME_STEP" ] || [ "$RESUME_STEP" -le 2 ]; then
+  log "Step 2: Upload to ADLS Gen2"
+  write_state '{"step":2,"started_at":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+  if ! bash "$SCRIPT_DIR/upload-to-adls.sh" 2>&1 | tee -a "$LOG_FILE"; then
+    write_state '{"step":2,"error":"upload failed","failed_at":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+    log "FAILED at step 2 (upload). Run again to retry from upload."
+    exit 1
+  fi
+fi
+
+# ─── Step 3: Trigger Databricks Job ───
 log "Step 3: Trigger Databricks Auto Loader"
+write_state '{"step":3,"started_at":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
 
 if [ -z "$DATABRICKS_HOST" ] || [ -z "$DATABRICKS_TOKEN" ]; then
   log "ERROR: DATABRICKS_HOST and DATABRICKS_TOKEN must be set"
@@ -144,6 +197,7 @@ fi
 
 # Trigger the Job
 log "  Triggering Job $JOB_ID"
+write_state '{"step":3,"started_at":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'","job_id":'"$JOB_ID"'}'
 RUN_ID=$(retry_curl -X POST "$DATABRICKS_HOST/api/2.1/jobs/run-now" \
   -H "Authorization: Bearer $DATABRICKS_TOKEN" \
   -H "Content-Type: application/json" \
@@ -170,12 +224,21 @@ print(f'{life}|{result}')
   if [ "$LIFECYCLE" = "TERMINATED" ]; then
     if [ "$RESULT" = "SUCCESS" ]; then
       log "  Job completed: SUCCESS (${i}x30s)"
+      clear_state
+      log "=== Daily sync complete ==="
+      exit 0
     else
+      write_state '{"step":3,"error":"job result: '"$RESULT"'","job_id":'"$JOB_ID"',"run_id":'"$RUN_ID"',"failed_at":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
       log "  Job completed: $RESULT (${i}x30s)"
+      log "FAILED at step 3 (Databricks job). Run again to retry."
+      exit 1
     fi
     break
   fi
   echo "  [$i] $LIFECYCLE..."
 done
 
-log "=== Daily sync complete ==="
+# If we get here, the polling loop timed out
+write_state '{"step":3,"error":"job polling timeout","job_id":'"$JOB_ID"',"run_id":'"$RUN_ID"',"failed_at":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+log "FAILED at step 3 (timeout waiting for job). Run again to retry."
+exit 1
