@@ -2,7 +2,7 @@
 
 > Generated from `mcp-server/src/tools.ts` Zod schemas.
 > Keep in sync with tools.ts when adding/changing tools.
-> Last updated: March 26, 2026 (4 tools, v0.2.0)
+> Last updated: March 26, 2026 (7 tools, v0.2.0)
 
 ## Overview
 
