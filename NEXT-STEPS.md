@@ -1,6 +1,6 @@
 # NEXT-STEPS.md — What Needs Doing
 
-> Updated: March 26, 2026
+> Updated: March 27, 2026
 > Owner: David (Jinguo)
 > Purpose: Hand-off doc for any developer (human or AI) to pick up work.
 
@@ -23,10 +23,19 @@
 | 15 | R14: async AI-to-AI comms | ✅ get_questions tool (questions.ts, 5 tests) |
 | 16 | R16: capability registry | ✅ 4 agent Gold entities |
 | 17 | R18: RPA dispatcher | ✅ dispatch-to.sh (192 lines, AppleScript) |
+| 18 | MemoBridge Stage 1: read | ✅ Chrome ext searches Databricks from Gemini (Mar 27) |
+| 19 | MemoBridge Stage 2: write | ✅ Auto-capture AI responses to Databricks (Mar 27) |
+| 20 | Azure cost optimization | ✅ Vector Search deleted, idle $0.05/day (Mar 27) |
 
 ## What's next
 
-### 1. OpenClaw dispatch integration
+### 1. MemoBridge Stage 3: reliable capture + image awareness
+
+**Priority:** High
+**What:** Fix Gemini Shadow DOM selectors, detect images in responses, add has_image flag.
+**Status:** Stage 2 works via body.innerText diff fallback. Needs proper per-platform selectors.
+
+### 2. OpenClaw dispatch integration
 
 **Priority:** High
 **What:** Wire dispatch-to.sh into OpenClaw's task assignment flow.
