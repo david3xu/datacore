@@ -1,0 +1,8 @@
+{
+  "name": "datacore-tools",
+  "private": true,
+  "scripts": {
+    "dashboard": "bash ./scripts/generate-dashboard.sh && (command -v open >/dev/null 2>&1 && open ./docs/dashboard/index.html || xdg-open ./docs/dashboard/index.html || true)",
+    "test": "cd mcp-server && pnpm test"
+  }
+}

@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Datacore Task Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #18223c;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --border: #1f2a44;
+      --pill-created: #cbd5f5;
+      --pill-assigned: #fde68a;
+      --pill-in_progress: #fbbf24;
+      --pill-blocked: #f87171;
+      --pill-failed: #f87171;
+      --pill-completed: #4ade80;
+      --pill-reviewed: #a78bfa;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --text: #0f172a;
+        --muted: #475569;
+        --accent: #2563eb;
+        --border: #e2e8f0;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 2rem;
+      background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.08), transparent 45%),
+        radial-gradient(circle at 80% 0%, rgba(167, 139, 250, 0.08), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      max-width: 1200px;
+      margin: 0 auto 1.5rem;
+    }
+
+    header h1 {
+      margin: 0 0 0.5rem;
+      font-size: clamp(1.8rem, 3vw, 2.4rem);
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem auto;
+      max-width: 1200px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      padding: 1.25rem;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 40px rgba(15, 23, 42, 0.25);
+    }
+
+    .stat-card span {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .stat-card strong {
+      display: block;
+      margin-top: 0.4rem;
+      font-size: 1.8rem;
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin: 0 auto 1.5rem;
+      max-width: 1200px;
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .filters label {
+      display: flex;
+      flex-direction: column;
+      font-size: 0.85rem;
+      color: var(--muted);
+      flex: 1 1 180px;
+    }
+
+    .filters select,
+    .filters input {
+      margin-top: 0.35rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      outline: none;
+    }
+
+    .tasks {
+      max-width: 1200px;
+      margin: 0 auto 3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .task-card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 1.5rem;
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .task-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 20px;
+      border: 1px solid transparent;
+      background: linear-gradient(120deg, rgba(56, 189, 248, 0.4), rgba(167, 139, 250, 0.4));
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .task-card:hover::before {
+      opacity: 1;
+    }
+
+    .task-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .task-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .task-id {
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .task-summary {
+      font-size: 1.05rem;
+      margin: 0 0 0.5rem;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .timeline {
+      margin-top: 1rem;
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+      display: none;
+    }
+
+    .timeline ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .timeline li {
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .toggle-timeline {
+      border: none;
+      background: linear-gradient(120deg, rgba(56, 189, 248, 0.2), rgba(167, 139, 250, 0.2));
+      color: var(--text);
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 0.2s;
+    }
+
+    .toggle-timeline:hover {
+      transform: translateY(-1px);
+    }
+
+    .status-pill {
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .status-created { background: var(--pill-created); }
+    .status-assigned { background: var(--pill-assigned); }
+    .status-in_progress { background: var(--pill-in_progress); }
+    .status-blocked { background: var(--pill-blocked); }
+    .status-failed { background: var(--pill-failed); }
+    .status-completed { background: var(--pill-completed); }
+    .status-reviewed { background: var(--pill-reviewed); }
+
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      padding: 3rem;
+      border: 2px dashed var(--border);
+      border-radius: 24px;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 1rem;
+      }
+
+      .task-card {
+        padding: 1.25rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Datacore Task Dashboard</h1>
+    <p>Live view of every task in the Datacore queue. Generated <span id="generated-at">—</span>.</p>
+  </header>
+
+  <section class="stats-grid">
+    <div class="stat-card"><span>Total Tasks</span><strong id="stat-total">0</strong></div>
+    <div class="stat-card"><span>In Progress</span><strong id="stat-in-progress">0</strong></div>
+    <div class="stat-card"><span>Completed</span><strong id="stat-completed">0</strong></div>
+    <div class="stat-card"><span>Reviewed</span><strong id="stat-reviewed">0</strong></div>
+  </section>
+
+  <section class="filters">
+    <label>Project
+      <select id="filter-project"></select>
+    </label>
+    <label>Status
+      <select id="filter-status"></select>
+    </label>
+    <label>Assignee
+      <select id="filter-assignee"></select>
+    </label>
+    <label>Search summary
+      <input type="text" id="filter-search" placeholder="Search summaries or events" />
+    </label>
+  </section>
+
+  <section id="task-list" class="tasks"></section>
+  <div id="empty-state" class="empty-state" style="display:none;">No tasks match the current filters.</div>
+
+  <footer>
+    Built for offline viewing. Run <code>pnpm run dashboard</code> to refresh data.
+  </footer>
+
+  <script>
+    const projectSelect = document.getElementById('filter-project');
+    const statusSelect = document.getElementById('filter-status');
+    const assigneeSelect = document.getElementById('filter-assignee');
+    const searchInput = document.getElementById('filter-search');
+    const taskList = document.getElementById('task-list');
+    const emptyState = document.getElementById('empty-state');
+    const stats = {
+      total: document.getElementById('stat-total'),
+      inProgress: document.getElementById('stat-in-progress'),
+      completed: document.getElementById('stat-completed'),
+      reviewed: document.getElementById('stat-reviewed'),
+    };
+
+    const statusLabels = {
+      created: 'Created',
+      assigned: 'Assigned',
+      in_progress: 'In Progress',
+      blocked: 'Blocked',
+      failed: 'Failed',
+      completed: 'Completed',
+      reviewed: 'Reviewed',
+    };
+
+    let dashboardData = null;
+
+    function optionHtml(value, label) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      return option;
+    }
+
+    function populateFilters() {
+      projectSelect.innerHTML = '';
+      projectSelect.append(optionHtml('all', 'All projects'));
+      dashboardData.filters.projects.forEach(([project]) => {
+        projectSelect.append(optionHtml(project, project));
+      });
+
+      statusSelect.innerHTML = '';
+      statusSelect.append(optionHtml('all', 'All statuses'));
+      dashboardData.filters.statuses.forEach(([status]) => {
+        statusSelect.append(optionHtml(status, statusLabels[status] || status));
+      });
+
+      assigneeSelect.innerHTML = '';
+      assigneeSelect.append(optionHtml('all', 'All assignees'));
+      dashboardData.filters.assignees.forEach(([assignee]) => {
+        assigneeSelect.append(optionHtml(assignee, assignee));
+      });
+    }
+
+    function updateStats() {
+      stats.total.textContent = dashboardData.totals.total;
+      stats.inProgress.textContent = dashboardData.totals.in_progress || 0;
+      stats.completed.textContent = dashboardData.totals.completed || 0;
+      stats.reviewed.textContent = dashboardData.totals.reviewed || 0;
+      const generatedAt = document.getElementById('generated-at');
+      generatedAt.textContent = new Date(dashboardData.generatedAt).toLocaleString();
+    }
+
+    function formatDate(value) {
+      if (!value) return 'Unknown time';
+      return new Date(value).toLocaleString();
+    }
+
+    function filterTasks() {
+      const project = projectSelect.value;
+      const status = statusSelect.value;
+      const assignee = assigneeSelect.value;
+      const text = searchInput.value.trim().toLowerCase();
+
+      return dashboardData.tasks.filter((task) => {
+        const matchesProject = project === 'all' || task.project === project;
+        const matchesStatus = status === 'all' || task.status === status;
+        const matchesAssignee = assignee === 'all' || task.assigned_to === assignee;
+        const matchesText = !text ||
+          task.summary.toLowerCase().includes(text) ||
+          task.events.some((evt) => (evt.content || '').toLowerCase().includes(text));
+        return matchesProject && matchesStatus && matchesAssignee && matchesText;
+      });
+    }
+
+    function renderTasks(tasks) {
+      taskList.innerHTML = '';
+      if (tasks.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      tasks.forEach((task) => {
+        const card = document.createElement('article');
+        card.className = 'task-card';
+
+        const header = document.createElement('div');
+        header.className = 'task-header';
+        header.innerHTML = `
+          <span class="task-id">${task.id}</span>
+          <span class="status-pill status-${task.status}">${statusLabels[task.status] || task.status}</span>
+        `;
+
+        const summary = document.createElement('p');
+        summary.className = 'task-summary';
+        summary.textContent = task.summary;
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.innerHTML = `
+          <span>Project: <strong>${task.project}</strong></span>
+          <span>Assignee: <strong>${task.assigned_to}</strong></span>
+          <span>Updated: <strong>${formatDate(task.updatedAt)}</strong></span>
+        `;
+
+        const button = document.createElement('button');
+        button.className = 'toggle-timeline';
+        button.textContent = 'View Timeline';
+
+        const timeline = document.createElement('div');
+        timeline.className = 'timeline';
+        const list = document.createElement('ul');
+        task.events.forEach((evt) => {
+          const item = document.createElement('li');
+          const statusLabel = statusLabels[evt.status] || evt.status;
+          item.innerHTML = `<strong>${formatDate(evt.timestamp)}</strong> · ${evt.type} · ${statusLabel}<br>${(evt.content || '').slice(0, 220)}`;
+          list.appendChild(item);
+        });
+        timeline.appendChild(list);
+
+        button.addEventListener('click', () => {
+          const open = timeline.style.display === 'block';
+          timeline.style.display = open ? 'none' : 'block';
+          button.textContent = open ? 'View Timeline' : 'Hide Timeline';
+        });
+
+        card.append(header, summary, meta, button, timeline);
+        taskList.appendChild(card);
+      });
+    }
+
+    async function loadData() {
+      try {
+        const response = await fetch('tasks.json');
+        if (!response.ok) throw new Error('tasks.json not found');
+        dashboardData = await response.json();
+        populateFilters();
+        updateStats();
+        renderTasks(filterTasks());
+      } catch (error) {
+        emptyState.style.display = 'block';
+        emptyState.textContent = `Unable to load tasks.json (${error.message}). Run \`pnpm run dashboard\` to regenerate.`;
+      }
+    }
+
+    [projectSelect, statusSelect, assigneeSelect].forEach((select) => {
+      select.addEventListener('change', () => renderTasks(filterTasks()));
+    });
+    searchInput.addEventListener('input', () => renderTasks(filterTasks()));
+
+    loadData();
+  </script>
+</body>
+</html>
