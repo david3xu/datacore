@@ -1,4 +1,6 @@
 // gold-store.ts — How are Gold entities stored and retrieved?
+// Primary backend: Cosmos DB (when COSMOS_ENDPOINT + COSMOS_KEY are set).
+// Fallback backend: per-type JSONL files at $DATACORE_GOLD_DIR or ~/.datacore/gold/.
 
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -11,6 +13,14 @@ import type {
   GetFactsInput,
   GetFactsResult,
 } from './types.js';
+import { isCosmosEnabled, getGoldContainer } from './cosmos-client.js';
+
+function pluralize(word: string): string {
+  if (word.endsWith('y')) return word.slice(0, -1) + 'ies';
+  if (word.endsWith('s') || word.endsWith('x') || word.endsWith('sh') || word.endsWith('ch'))
+    return word + 'es';
+  return word + 's';
+}
 
 function resolveGoldDir(): string {
   return process.env.DATACORE_GOLD_DIR || path.join(os.homedir(), '.datacore', 'gold');
@@ -21,10 +31,29 @@ export function getGoldDir(): string {
 }
 
 function goldFilePath(entityType: string): string {
-  return path.join(resolveGoldDir(), `${entityType}s.jsonl`);
+  return path.join(resolveGoldDir(), `${pluralize(entityType)}.jsonl`);
 }
 
 export async function readGoldEntities(entityType?: string): Promise<GoldEntity[]> {
+  if (isCosmosEnabled()) {
+    return readGoldEntitiesFromCosmos(entityType);
+  }
+  return readGoldEntitiesFromJsonl(entityType);
+}
+
+async function readGoldEntitiesFromCosmos(entityType?: string): Promise<GoldEntity[]> {
+  const container = await getGoldContainer();
+  const querySpec = entityType
+    ? {
+        query: 'SELECT * FROM c WHERE c.entity_type = @et',
+        parameters: [{ name: '@et', value: entityType }],
+      }
+    : { query: 'SELECT * FROM c' };
+  const { resources } = await container.items.query<GoldEntity>(querySpec).fetchAll();
+  return resources;
+}
+
+async function readGoldEntitiesFromJsonl(entityType?: string): Promise<GoldEntity[]> {
   const goldDir = resolveGoldDir();
 
   let filePaths: string[];
@@ -76,6 +105,55 @@ function contentHash(summary: string, project: string): string {
 }
 
 export async function upsertEntity(input: AddEntityInput): Promise<AddEntityResult> {
+  if (isCosmosEnabled()) {
+    return upsertEntityToCosmos(input);
+  }
+  return upsertEntityToJsonl(input);
+}
+
+async function upsertEntityToCosmos(input: AddEntityInput): Promise<AddEntityResult> {
+  const container = await getGoldContainer();
+  const { entity_type, summary, project = '', tags = [], source_events = [], data } = input;
+  const hash = contentHash(summary, project);
+  const now = new Date().toISOString();
+
+  // Check for duplicate by content hash
+  const { resources } = await container.items
+    .query<
+      GoldEntity & { id: string }
+    >({ query: 'SELECT * FROM c WHERE c.entity_type = @et', parameters: [{ name: '@et', value: entity_type }] })
+    .fetchAll();
+
+  const duplicate = resources.find((e) => contentHash(e.summary, e.project ?? '') === hash);
+
+  if (duplicate) {
+    const updated: GoldEntity = {
+      ...duplicate,
+      tags: Array.from(new Set([...(duplicate.tags ?? []), ...tags])),
+      source_events: Array.from(new Set([...(duplicate.source_events ?? []), ...source_events])),
+      data: data !== undefined ? data : duplicate.data,
+      updated_at: now,
+    };
+    await container.items.upsert({ ...updated, id: duplicate.entity_id });
+    return { entity_id: updated.entity_id, file_path: 'cosmos://datacore/gold', action: 'updated' };
+  }
+
+  const entity: GoldEntity = {
+    entity_type,
+    entity_id: randomUUID(),
+    summary,
+    project: project || undefined,
+    tags,
+    source_events,
+    data,
+    created_at: now,
+    updated_at: now,
+  };
+  await container.items.create({ ...entity, id: entity.entity_id });
+  return { entity_id: entity.entity_id, file_path: 'cosmos://datacore/gold', action: 'created' };
+}
+
+async function upsertEntityToJsonl(input: AddEntityInput): Promise<AddEntityResult> {
   const goldDir = resolveGoldDir();
   await fs.mkdir(goldDir, { recursive: true });
 
@@ -83,14 +161,11 @@ export async function upsertEntity(input: AddEntityInput): Promise<AddEntityResu
   const filePath = goldFilePath(entity_type);
   const hash = contentHash(summary, project);
 
-  // Read existing entities to check for duplicates
   const existing = await readGoldEntities(entity_type);
   const duplicate = existing.find((e) => contentHash(e.summary, e.project ?? '') === hash);
-
   const now = new Date().toISOString();
 
   if (duplicate) {
-    // Update in place — rewrite file with updated entity
     const updated: GoldEntity = {
       ...duplicate,
       tags: Array.from(new Set([...(duplicate.tags ?? []), ...tags])),
@@ -104,7 +179,6 @@ export async function upsertEntity(input: AddEntityInput): Promise<AddEntityResu
     return { entity_id: updated.entity_id, file_path: filePath, action: 'updated' };
   }
 
-  // Create new entity
   const entity: GoldEntity = {
     entity_type,
     entity_id: randomUUID(),

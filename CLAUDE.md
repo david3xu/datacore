@@ -4,8 +4,17 @@
 
 Cross-agent memory layer. MCP server exposing `log_event`, `search`,
 `get_tasks`, `deep_search`, `get_facts`, and `add_entity` tools.
-Bronze JSONL store locally. Silver layer on Azure Databricks (Vector
-Search + managed embeddings). Gold layer as local JSONL structured facts.
+
+**Backends (Phase 5+):**
+- **Bronze/Gold primary**: Azure Cosmos DB (`cosmos-datacore`, `rg-datacore`, australiaeast) — enabled when `COSMOS_ENDPOINT` + `COSMOS_KEY` are set
+- **Bronze/Gold fallback**: Local JSONL files at `~/.datacore/` — used when Cosmos vars are absent
+- **Silver**: Azure Databricks (Vector Search + managed embeddings)
+
+**To enable Cosmos DB**, set these env vars (or add to `~/.zshrc`):
+```bash
+export COSMOS_ENDPOINT=https://cosmos-datacore.documents.azure.com:443/
+export COSMOS_KEY=<from: az cosmosdb keys list --name cosmos-datacore --resource-group rg-datacore --query primaryMasterKey -o tsv>
+```
 
 ## Build & test commands
 
@@ -18,6 +27,17 @@ pnpm run test               # 56 tests across 5 suites
 pnpm run start              # Run compiled server (dist/server.js)
 ```
 
+## MemoBridge ingestion
+
+MemoBridge captures land in Databricks (`default.memobridge_events`). Pull them into Bronze before running searches so every AI can see the same history.
+
+1. Export credentials (`DATABRICKS_HOST`, `DATABRICKS_TOKEN`, `MEMOBRIDGE_WAREHOUSE`). Optional overrides: `MEMOBRIDGE_TABLE`, `MEMOBRIDGE_SCHEMA`, `MEMOBRIDGE_CATALOG`, `SYNC_LIMIT`, `DATACORE_BRONZE_DIR`.
+2. Run `pnpm run sync:memobridge` (wrapper around `node scripts/sync-memobridge.mjs`).
+3. The script appends JSONL rows to `~/.datacore/bronze/YYYY-MM-DD.jsonl`, tags them with `context.origin = "memobridge"`, and stores the source timestamp in `context.source_timestamp`.
+4. Checkpoint lives at `~/.datacore/.memobridge-sync-marker` so repeated runs only fetch new rows.
+
+Imported rows immediately show up in `search`, `deep_search`, dashboards, and task board context.
+
 ## Workflow requirements
 
 **Before finishing any task**, always:
@@ -27,6 +47,16 @@ pnpm run start              # Run compiled server (dist/server.js)
 3. Run `pnpm run test` — all 56 tests must pass
 4. Run `pnpm run format:check` — all files must be formatted
 5. Update this file if you discovered a new gotcha
+
+## Documentation Rules
+
+- This file is the canonical source for Datacore metrics (test counts, tool lists, Bronze totals). Other docs should link here rather than duplicate numbers.
+- After completing any Datacore task:
+  1. Run `./scripts/check-docs.sh` from the Developer root.
+  2. `grep -R "<value>" docs/ datacore/CLAUDE.md` for every value you changed. Update or replace duplicates with pointers.
+  3. Record the sweep in `task_completed` (example: `Docs checked: check-docs.sh clean; grep for "56 tests" clean`).
+- Reviewers rerun the same commands before logging `task_reviewed`. Missing proof or failing doc checks = automatic send-back.
+- When you edit shared docs (backlog, workflow, ops guide), coordinate with the owners listed in `docs/DOC-DISCIPLINE.md` so currency stays intact.
 
 Pre-commit hook enforces: format:check → lint → build → test.
 CI enforces the same on every push.
@@ -200,5 +230,22 @@ CI (GitHub Actions)     ✅  format → lint → build → test
       Types (TypeScript)✅  strict mode, compiled
         Tests           ✅  56 tests, 5 suites
           Formatter     ✅  Prettier configured
-            Schemas     ✅  Zod on all 7 tools
+            Schemas     ✅  Zod on all 8 tools
 ```
+
+## Documentation rules
+
+This CLAUDE.md is the **canonical source** for all datacore metrics. Other
+docs (project-map.md, onboarding.md, DEVELOPER-GUIDE.md) must LINK here,
+not duplicate numbers. See `docs/workflow.md` Section 6.5.
+
+After completing any task that changes code behavior:
+1. Run `pnpm run check` — must pass clean
+2. `git status --short` — must return empty (commit your work)
+3. `grep -rn "old_value" ~/Developer/docs/ ~/Developer/*/CLAUDE.md` — fix stale refs
+4. Include in task_completed event: "Docs checked: [clean | updated X, Y, Z]"
+5. Include proof: exact commands run and their output
+
+If you changed a metric (test count, tool count, event count):
+- Update ONLY this CLAUDE.md
+- Do NOT update other docs — they point here

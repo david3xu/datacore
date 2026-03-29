@@ -115,13 +115,42 @@ That gap is exactly what datacore solves.
 
 ## Current Status
 
-- **MCP server**: 7 tools (`log_event`, `search`, `get_tasks`, `deep_search`, `get_facts`, `add_entity`, `get_questions`), TypeScript, 56 tests
-- **Bronze store**: 21,000+ events from 13 sources, JSONL append-only
-- **Silver layer**: Azure Databricks Vector Search (2,194 events indexed, managed embeddings)
-- **Connected**: Claude Desktop, OpenClaw, Codex, Gemini Antigravity
-- **Auto-capture**: 5 session watchers (OpenClaw hook, Gemini/Claude/Codex watchers, manual logging)
-- **CI**: GitHub Actions (format → lint → build → test on every push)
-- **Next**: Gold layer (curated facts), entity extraction, data refresh pipeline
+- **Datacore metrics** — See `datacore/CLAUDE.md` for the canonical list of MCP tools, test counts, and release notes (current tag v0.3.0).
+- **MemoBridge** — Chrome extension feeding Databricks (`default.memobridge_events`). Stages 1–4 are complete (semantic search, auto-context, auto-start warehouse).
+- **Multi-agent topology** — Claude (architect), Codex/Gemini (builders), OpenClaw (manager). Capabilities tracked in Gold entities; dispatch-to.sh provides GUI wakeups.
+- **Infrastructure** — Bronze JSONL store in `~/.datacore/bronze`, Silver on Azure Databricks (Vector Search paused for cost control), Gold JSONL facts.
+- **Tooling** — GitHub Actions (format → lint → build → test), launchd session watchers, dashboards under `docs/dashboard/`.
+- **Focus areas** — MemoBridge → Bronze ingestion (DC-T2), Chrome Web Store submission, async comms hardening (R13/R16/R17/R18).
+
+## Syncing MemoBridge captures into Bronze
+
+MemoBridge saves captures inside Databricks (default table `default.memobridge_events`). Run `scripts/sync-memobridge.mjs` to pull those rows into the local Bronze store so `search`, `get_tasks`, and other tools can see them. The script maintains a watermark (`~/.datacore/.memobridge-sync-marker`) so each run only imports new rows.
+
+### Configure credentials
+
+Set these environment variables before running the sync (use a dedicated `.env.memobridge` file if that helps):
+
+```
+export DATABRICKS_HOST="community.cloud.databricks.com"
+export DATABRICKS_TOKEN="<PAT with SQL access>"
+export MEMOBRIDGE_WAREHOUSE="<SQL warehouse ID>"
+# Optional overrides
+export MEMOBRIDGE_TABLE="default.memobridge_events"
+export MEMOBRIDGE_SCHEMA="default"
+export MEMOBRIDGE_CATALOG=""
+export SYNC_LIMIT=500
+export DATACORE_BRONZE_DIR="$HOME/.datacore/bronze"
+```
+
+### Run the sync
+
+```
+pnpm run sync:memobridge
+# or
+node scripts/sync-memobridge.mjs
+```
+
+Rows are appended to `~/.datacore/bronze/YYYY-MM-DD.jsonl` with `context.origin = "memobridge"` and the original Databricks timestamp preserved in `context.source_timestamp`.
 
 ## Project Structure
 
@@ -142,7 +171,7 @@ datacore/
 │   │   ├── types.ts         ← all interfaces
 │   │   ├── client.ts        ← programmatic MCP client
 │   │   └── paths.ts         ← file path resolution
-│   ├── tests/               ← 56 tests (Node.js built-in runner)
+│   ├── tests/               ← tests (see datacore/CLAUDE.md for live count)
 │   ├── scripts/             ← session watchers, export, smoke tests
 │   ├── package.json, tsconfig.json, eslint.config.js, .prettierrc
 │   └── dist/                ← compiled output (gitignored)
@@ -151,3 +180,40 @@ datacore/
 ├── infra/                   ← Azure IaC (Bicep + Databricks setup)
 └── hooks/                   ← OpenClaw auto-log hook
 ```
+
+## Codex post-execution logging (R13)
+
+Codex Desktop runs headless, so its work needs to be summarized manually after a session.
+Use `scripts/codex-postexec.mjs` to scan `.codex/sessions/**/*.jsonl`, extract commits/PRs/errors, and log a Datacore summary via `log_event`.
+
+### Quick start
+
+```bash
+cd "~/Library/CloudStorage/OneDrive-Curtin/Developer/datacore"
+pnpm run codex:postexec                # most recent session
+pnpm run codex:postexec -- --count 3   # summarize last 3 sessions
+pnpm run codex:postexec -- --since 60  # sessions updated in last hour
+pnpm run codex:postexec -- --file ~/.codex/sessions/2026/03/29/rollout-...jsonl
+```
+
+Each run writes a `builder_summary` event with the git directives, final response, and any errors.
+Pass `--dry-run` to preview the summary without logging.
+
+## OpenClaw GUI dispatcher (R18)
+
+OpenClaw can now wake Claude Desktop, Codex (VS Code), and Gemini (Antigravity/Chrome) with a single command:
+
+```bash
+cd "~/Library/CloudStorage/OneDrive-Curtin/Developer/datacore"
+./scripts/dispatch-to.sh claude-desktop "Review GOLD-PHASE-1"
+```
+
+Features:
+- AppleScript automation per platform (new chat, clipboard-safe paste, send)
+- Clipboard backup/restore, multi-line messages, `BRIEFING` env fallback
+- In-progress guard via `get_tasks(assigned_to: X, status: "in_progress")` (use `--force` to override)
+- `--dry-run` mode + Datacore logging (`log_event`, type `dispatch`)
+- Gemini path auto-detects Antigravity; falls back to Chrome when the app isn’t installed
+
+Options: `--dry-run`, `--force`, `--message-file path`. Aliases (`claude`, `code`, `antigravity`, etc.) are supported.
+

@@ -1,5 +1,6 @@
 // store.ts — How is data stored?
-// Appends events to daily JSONL files with sanitization.
+// Primary backend: Cosmos DB (when COSMOS_ENDPOINT + COSMOS_KEY are set).
+// Fallback backend: daily JSONL files at $DATACORE_BRONZE_DIR or ~/.datacore/bronze/.
 
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -13,6 +14,7 @@ import type {
   Filters,
   ReadAllResult,
 } from './types.js';
+import { isCosmosEnabled, getBronzeContainer } from './cosmos-client.js';
 
 const VERIFIED_SOURCES = new Set(['log-session-sh']);
 const AI_SOURCES = new Set([
@@ -77,6 +79,36 @@ export function matchesFilters(record: BronzeRecord, { source, type }: Filters):
 }
 
 export async function readAllRecords(filters: Filters = {}): Promise<ReadAllResult> {
+  if (isCosmosEnabled()) {
+    return readAllRecordsFromCosmos(filters);
+  }
+  return readAllRecordsFromJsonl(filters);
+}
+
+async function readAllRecordsFromCosmos(filters: Filters): Promise<ReadAllResult> {
+  const container = await getBronzeContainer();
+  const conditions: string[] = [];
+  const params: { name: string; value: string }[] = [];
+
+  if (filters.source) {
+    conditions.push('CONTAINS(c._source, @source, true)');
+    params.push({ name: '@source', value: filters.source });
+  }
+  if (filters.type) {
+    conditions.push('CONTAINS(c.type, @type, true)');
+    params.push({ name: '@type', value: filters.type });
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const { resources } = await container.items
+    .query<BronzeRecord>({ query: `SELECT * FROM c ${where}`, parameters: params })
+    .fetchAll();
+
+  resources.sort((a, b) => (b._timestamp ?? '').localeCompare(a._timestamp ?? ''));
+  return { bronzeDir: 'cosmos://datacore/bronze', files: [], records: resources, parseErrors: 0 };
+}
+
+async function readAllRecordsFromJsonl(filters: Filters): Promise<ReadAllResult> {
   const bronzeDir = resolveBronzeDir();
   const files = await listBronzeFiles(bronzeDir);
   const records: BronzeRecord[] = [];
@@ -116,7 +148,6 @@ export async function appendEvent({
   content,
   context,
 }: AppendEventInput): Promise<AppendEventResult> {
-  const bronzeDir = resolveBronzeDir();
   const timestamp = new Date().toISOString();
   const sanitizedSource = sanitize(source);
   const record: BronzeRecord = {
@@ -129,10 +160,16 @@ export async function appendEvent({
     _event_id: randomUUID(),
     _trust: inferTrust(sanitizedSource),
   };
-  const filePath = path.join(bronzeDir, `${dayStamp(timestamp)}.jsonl`);
 
+  if (isCosmosEnabled()) {
+    const container = await getBronzeContainer();
+    await container.items.create({ ...record, id: record._event_id });
+    return { bronzeDir: 'cosmos://datacore/bronze', filePath: '', record };
+  }
+
+  const bronzeDir = resolveBronzeDir();
+  const filePath = path.join(bronzeDir, `${dayStamp(timestamp)}.jsonl`);
   await fs.mkdir(bronzeDir, { recursive: true });
   await fs.appendFile(filePath, `${JSON.stringify(record)}\n`, 'utf8');
-
   return { bronzeDir, filePath, record };
 }
